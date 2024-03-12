@@ -1,0 +1,21 @@
+
+set(THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
+
+set(GLM_DIR "${THIRD_PARTY_DIR}/glm")
+set(GLFW_DIR "${THIRD_PARTY_DIR}/glfw")
+
+# GLM
+add_subdirectory(${GLM_DIR})
+set(GLM_INCLUDE_DIRS ${GLM_DIR})
+set(GLM_LIBRARIES glm::glm)
+
+# GLFW
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+add_subdirectory(${GLFW_DIR})
+set(GLFW_INCLUDE_DIRS ${GLFW_DIR})
+set(GLFW_LIBRARIES glfw)
+
+
+find_package(Vulkan REQUIRED FATAL_ERROR)
