@@ -7,6 +7,7 @@ if (POLICY CMP0141)
 endif()
 cmake_policy(SET CMP0060 NEW)
 
+
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/third_party.cmake")
 
 add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/src/GPUInstancing/")

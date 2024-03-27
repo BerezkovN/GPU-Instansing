@@ -1,41 +1,19 @@
 ﻿#include "GPUInstancing.hpp"
 
-#include <iostream>
-
-#include <vulkan/vulkan.h>
-#include <GLFW/glfw3.h>
-
-#include "glm/vec4.hpp"
-#include "glm/mat4x4.hpp"
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-
-
+#include "helpers/pch.hpp"
+#include "helpers/App.hpp"
 
 int main()
 {
-	glfwInit();
+	App app{};
 
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	GLFWwindow* window = glfwCreateWindow(800, 600, "GPUInstancing", nullptr, nullptr);
+	try {
+		app.Start();
+	}
+	catch (const std::exception& e) {
+		std::cerr << e.what() << "\n";
+		return EXIT_FAILURE;
+	}
 
-    uint32_t extensionCount = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-    std::cout << extensionCount << " extensions supported\n";
-
-    glm::mat4 matrix;
-    glm::vec4 vec;
-    auto test = matrix * vec;
-
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
-    }
-
-    glfwDestroyWindow(window);
-
-    glfwTerminate();
-
-	return 0;
+	return EXIT_SUCCESS;
 }

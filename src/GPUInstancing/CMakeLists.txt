@@ -1,7 +1,12 @@
-﻿
+cmake_minimum_required (VERSION 3.8)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 project (VulkanGPUInstancing LANGUAGES CXX)
 
-add_executable (VulkanGPUInstancing "GPUInstancing.cpp" "GPUInstancing.hpp")
+file(GLOB_RECURSE GPU_INSTANCING_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.*)
+add_executable (VulkanGPUInstancing ${GPU_INSTANCING_SOURCES})
 
 target_include_directories(VulkanGPUInstancing PUBLIC
 	${GLM_INCLUDE_DIRS}
@@ -15,3 +20,8 @@ target_link_libraries(VulkanGPUInstancing PUBLIC
 	${Vulkan_LIBRARIES}
 )
 
+set_target_properties(VulkanGPUInstancing PROPERTIES UNITY_BUILD TRUE)
+set_target_properties(VulkanGPUInstancing PROPERTIES UNITY_BUILD_MODE BATCH)
+set_target_properties(VulkanGPUInstancing PROPERTIES UNITY_BUILD_BATCH_SIZE 4)
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${GPU_INSTANCING_SOURCES})

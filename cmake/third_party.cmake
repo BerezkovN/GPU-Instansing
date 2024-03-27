@@ -17,5 +17,5 @@ add_subdirectory(${GLFW_DIR})
 set(GLFW_INCLUDE_DIRS ${GLFW_DIR})
 set(GLFW_LIBRARIES glfw)
 
-
+# Vulkan
 find_package(Vulkan REQUIRED FATAL_ERROR)
