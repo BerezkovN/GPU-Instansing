@@ -24,4 +24,8 @@ set_target_properties(VulkanGPUInstancing PROPERTIES UNITY_BUILD TRUE)
 set_target_properties(VulkanGPUInstancing PROPERTIES UNITY_BUILD_MODE BATCH)
 set_target_properties(VulkanGPUInstancing PROPERTIES UNITY_BUILD_BATCH_SIZE 4)
 
+set_target_properties(VulkanGPUInstancing PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY 
+	"${CMAKE_CURRENT_SOURCE_DIR}/assets"
+)
+
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${GPU_INSTANCING_SOURCES})

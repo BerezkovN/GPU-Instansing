@@ -11,6 +11,7 @@ int main()
 		app.Start();
 	}
 	catch (const std::exception& e) {
+		std::cerr << "!ERROR!\n";
 		std::cerr << e.what() << "\n";
 		return EXIT_FAILURE;
 	}
