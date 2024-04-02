@@ -3,6 +3,7 @@ set(THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
 
 set(GLM_DIR "${THIRD_PARTY_DIR}/glm")
 set(GLFW_DIR "${THIRD_PARTY_DIR}/glfw")
+set(VOLK_DIR "${THIRD_PARTY_DIR}/volk")
 
 # GLM
 add_subdirectory(${GLM_DIR})
@@ -19,3 +20,11 @@ set(GLFW_LIBRARIES glfw)
 
 # Vulkan
 find_package(Vulkan REQUIRED FATAL_ERROR)
+
+# Volk
+if (WIN32)
+    set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
+elseif(UNIX)
+    set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_XLIB_KHR)
+endif()
+add_subdirectory(${VOLK_DIR})

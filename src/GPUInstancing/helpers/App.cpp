@@ -44,6 +44,12 @@ void App::Start() {
 
 void App::InitializeVulkan() {
 
+    VkResult result = volkInitialize();
+    
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[App] Unable to find vulkan loader: " + std::to_string(result));
+    }
+
     VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "GPUInstancing",
@@ -68,11 +74,13 @@ void App::InitializeVulkan() {
         .ppEnabledExtensionNames = extensions,
     };
 
-    const VkResult result = vkCreateInstance(&createInfo, nullptr, &vkInstance_);
+    result = vkCreateInstance(&createInfo, nullptr, &vkInstance_);
 
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[App] Could not create Vulkan instance: " + std::to_string(result));
     }
+
+    volkLoadInstance(vkInstance_);
 }
 
 void App::DestroyVulkan() const {
@@ -101,6 +109,7 @@ void App::DestroyVulkan() const {
     vkDestroyDevice(vkLogicalDevice_, nullptr);
     vkDestroySurfaceKHR(vkInstance_, vkSurface_, nullptr);
     vkDestroyInstance(vkInstance_, nullptr);
+    volkFinalize();
 }
 
 void App::Update() {
@@ -247,6 +256,9 @@ void App::CreateLogicalDevice() {
     };
 
     const VkResult result = vkCreateDevice(vkPhysicalDevice_, &deviceCreateInfo, nullptr, &vkLogicalDevice_);
+
+    // https://gpuopen.com/learn/reducing-vulkan-api-call-overhead/
+    volkLoadDevice(vkLogicalDevice_);
 
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[App] Could not create logical device: " + std::to_string(result));
@@ -738,7 +750,7 @@ VkPresentModeKHR App::ChoosePresentMode(const std::vector<VkPresentModeKHR>& pre
 VkExtent2D App::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const {
 
     // Special value.
-    if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+    if (capabilities.currentExtent.width != (std::numeric_limits<uint32_t>::max)()) {
         std::cout << "[App] Not High DPI\n";
         return capabilities.currentExtent;
     }

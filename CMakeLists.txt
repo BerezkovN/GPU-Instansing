@@ -7,6 +7,7 @@ if (POLICY CMP0141)
 endif()
 cmake_policy(SET CMP0060 NEW)
 
+project(VulkanTests LANGUAGES CXX)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/third_party.cmake")
 
