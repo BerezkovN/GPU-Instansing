@@ -30,7 +30,7 @@ private:
 	void CreateGraphicsPipeline();
 	void CreateFramebuffers();
 	void CreateCommandPool();
-	void CreateCommandBuffer();
+	void CreateCommandBuffers();
 	void CreateSyncObjects();
 
 	bool IsGPUSupported(const VkPhysicalDevice physicalDevice);
@@ -69,11 +69,17 @@ private:
 	VkPipelineLayout vkPipelineLayout_ = VK_NULL_HANDLE;
 
 	VkCommandPool vkGraphicsCommandPool_ = VK_NULL_HANDLE;
-	VkCommandBuffer vkGraphicsCommandBuffer_ = VK_NULL_HANDLE;
 
-	VkSemaphore imageAvailableSemaphore_ = VK_NULL_HANDLE;
-	VkSemaphore renderFinishedSemaphore_ = VK_NULL_HANDLE;
-	VkFence inFlightFence_ = VK_NULL_HANDLE;
+	/* * *
+	 * Per frame-in-flight objects
+	 */
+
+	std::vector<VkCommandBuffer> graphicsCommandBuffers_{};
+	std::vector<VkSemaphore> imageAvailableSemaphores_{};
+	std::vector<VkSemaphore> renderFinishedSemaphores_{};
+	std::vector<VkFence> inFlightFences_{};
+
+	uint32_t currentFrameInFlight_{};
 
 	/**
 	 * Currently, represents both graphics and presentation queue.

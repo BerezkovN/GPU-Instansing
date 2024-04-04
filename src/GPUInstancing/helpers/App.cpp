@@ -25,7 +25,7 @@ void App::Start() {
     this->CreateGraphicsPipeline();
     this->CreateFramebuffers();
     this->CreateCommandPool();
-    this->CreateCommandBuffer();
+    this->CreateCommandBuffers();
     this->CreateSyncObjects();
 
     while (!glfwWindowShouldClose(glfwWindow_)) {
@@ -93,10 +93,15 @@ void App::InitializeVulkan() {
 
 void App::DestroyVulkan() const {
 
-    vkDestroySemaphore(vkLogicalDevice_, imageAvailableSemaphore_, nullptr);
-    vkDestroySemaphore(vkLogicalDevice_, renderFinishedSemaphore_, nullptr);
-    vkDestroyFence(vkLogicalDevice_, inFlightFence_, nullptr);
+    for (size_t ind = 0; ind < framesInFlightCount_; ind++) {
+		    
+	    vkDestroySemaphore(vkLogicalDevice_, imageAvailableSemaphores_[ind], nullptr);
+	    vkDestroySemaphore(vkLogicalDevice_, renderFinishedSemaphores_[ind], nullptr);
+	    vkDestroyFence(vkLogicalDevice_, inFlightFences_[ind], nullptr);
+    }
 
+
+        
     vkDestroyCommandPool(vkLogicalDevice_, vkGraphicsCommandPool_, nullptr);
 
     for (const auto& framebuffer : vkSwapChainFramebuffers_) {
@@ -122,19 +127,19 @@ void App::DestroyVulkan() const {
 
 void App::Update() {
 
-    vkWaitForFences(vkLogicalDevice_, 1, &inFlightFence_, VK_TRUE, UINT64_MAX);
-    vkResetFences(vkLogicalDevice_, 1, &inFlightFence_);
+    vkWaitForFences(vkLogicalDevice_, 1, &inFlightFences_[currentFrameInFlight_], VK_TRUE, UINT64_MAX);
+    vkResetFences(vkLogicalDevice_, 1, &inFlightFences_[currentFrameInFlight_]);
 
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(vkLogicalDevice_, vkSwapChain_, UINT64_MAX, imageAvailableSemaphore_, VK_NULL_HANDLE, &imageIndex);
+    vkAcquireNextImageKHR(vkLogicalDevice_, vkSwapChain_, UINT64_MAX, imageAvailableSemaphores_[currentFrameInFlight_], VK_NULL_HANDLE, &imageIndex);
 
-    vkResetCommandBuffer(vkGraphicsCommandBuffer_, 0);
-    this->RecordCommandBuffer(vkGraphicsCommandBuffer_, imageIndex);
+    vkResetCommandBuffer(graphicsCommandBuffers_[currentFrameInFlight_], 0);
+    this->RecordCommandBuffer(graphicsCommandBuffers_[currentFrameInFlight_], imageIndex);
 
-    VkSemaphore waitSemaphores[] = { imageAvailableSemaphore_ };
+    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores_[currentFrameInFlight_]};
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
-    VkSemaphore signalSemaphore[] = { renderFinishedSemaphore_ };
+    VkSemaphore signalSemaphore[] = { renderFinishedSemaphores_[currentFrameInFlight_]};
 
     const VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -142,13 +147,13 @@ void App::Update() {
         .pWaitSemaphores = waitSemaphores,
         .pWaitDstStageMask = waitStages,
         .commandBufferCount = 1,
-        .pCommandBuffers = &vkGraphicsCommandBuffer_,
+        .pCommandBuffers = &graphicsCommandBuffers_[currentFrameInFlight_],
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = signalSemaphore
     };
 
 
-    VkResult result = vkQueueSubmit(graphicsQueue_, 1, &submitInfo, inFlightFence_);
+    VkResult result = vkQueueSubmit(graphicsQueue_, 1, &submitInfo, inFlightFences_[currentFrameInFlight_]);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[App] Error submitting a graphics queue: " + std::to_string(result));
     }
@@ -166,6 +171,8 @@ void App::Update() {
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[App] Error presenting graphics queue: " + std::to_string(result));
     }
+
+    currentFrameInFlight_ = (currentFrameInFlight_ + 1) % framesInFlightCount_;
 }
 
 void App::RecordCommandBuffer(const VkCommandBuffer commandBuffer, const uint32_t imageIndex) {
@@ -582,16 +589,18 @@ void App::CreateCommandPool() {
     }
 }
 
-void App::CreateCommandBuffer() {
+void App::CreateCommandBuffers() {
+
+    graphicsCommandBuffers_.resize(framesInFlightCount_);
 
 	const VkCommandBufferAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = vkGraphicsCommandPool_,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1
+        .commandBufferCount = framesInFlightCount_
     };
 
-    const VkResult result = vkAllocateCommandBuffers(vkLogicalDevice_, &allocateInfo, &vkGraphicsCommandBuffer_);
+    const VkResult result = vkAllocateCommandBuffers(vkLogicalDevice_, &allocateInfo, graphicsCommandBuffers_.data());
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[App] Could not allocate graphics command buffer: " + std::to_string(result));
     }
@@ -608,11 +617,18 @@ void App::CreateSyncObjects() {
         .flags = VK_FENCE_CREATE_SIGNALED_BIT
     };
 
-    if (vkCreateSemaphore(vkLogicalDevice_, &semaphoreCreateInfo, nullptr, &imageAvailableSemaphore_) != VK_SUCCESS ||
-        vkCreateSemaphore(vkLogicalDevice_, &semaphoreCreateInfo, nullptr, &renderFinishedSemaphore_) != VK_SUCCESS ||
-        vkCreateFence(vkLogicalDevice_, &fenceCreateInfo, nullptr, &inFlightFence_) != VK_SUCCESS) 
-    {
-        throw std::runtime_error("[App] Could not create sync objects");
+    imageAvailableSemaphores_.resize(framesInFlightCount_);
+    renderFinishedSemaphores_.resize(framesInFlightCount_);
+    inFlightFences_.resize(framesInFlightCount_);
+
+    for (size_t ind = 0; ind < framesInFlightCount_; ind++) {
+		    
+	    if (vkCreateSemaphore(vkLogicalDevice_, &semaphoreCreateInfo, nullptr, &imageAvailableSemaphores_[ind]) != VK_SUCCESS ||
+	        vkCreateSemaphore(vkLogicalDevice_, &semaphoreCreateInfo, nullptr, &renderFinishedSemaphores_[ind]) != VK_SUCCESS ||
+	        vkCreateFence(vkLogicalDevice_, &fenceCreateInfo, nullptr, &inFlightFences_[ind]) != VK_SUCCESS)
+	    {
+	        throw std::runtime_error("[App] Could not create sync objects");
+	    }
     }
 
 }
