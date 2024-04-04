@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <limits>
 
+#include <backends/imgui_impl_glfw.h>
+
 #include "pch.hpp"
 #include "VkHelper.hpp"
 
@@ -41,6 +43,12 @@ void App::Start() {
  
 }
 
+void App::InitializeImGUI() {
+    // ImGui::CreateContext();
+    // ImGui_ImplGlfw_InitForVulkan(glfwWindow_, true);
+
+}
+
 
 void App::InitializeVulkan() {
 
@@ -62,7 +70,7 @@ void App::InitializeVulkan() {
     uint32_t extensionCount;
     uint32_t layerCount;
 
-    const auto extensions = this->GetVulkanExtensions(extensionCount);
+    const auto extensions = this->GetVulkanInstanceExtensions(extensionCount);
     const auto layers = this->GetVulkanValidationLayers(layerCount);
 
     const VkInstanceCreateInfo createInfo = {
@@ -145,7 +153,7 @@ void App::Update() {
         throw std::runtime_error("[App] Error submitting a graphics queue: " + std::to_string(result));
     }
 
-    VkPresentInfoKHR presentInfo = {
+    const VkPresentInfoKHR presentInfo = {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = signalSemaphore,
@@ -162,7 +170,7 @@ void App::Update() {
 
 void App::RecordCommandBuffer(const VkCommandBuffer commandBuffer, const uint32_t imageIndex) {
 
-    VkCommandBufferBeginInfo beginInfo = {
+	constexpr VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         // TODO: Learn about this
         .flags = 0,
@@ -175,10 +183,10 @@ void App::RecordCommandBuffer(const VkCommandBuffer commandBuffer, const uint32_
     }
 
     VkClearValue clearValue = {
-        .color = {0, 0, 0, 1.0f}
+        .color = { .float32 = { 0.0f, 0.0f, 0.0f, 1.0f } }
     };
 
-    VkRenderPassBeginInfo renderPassBeginInfo = {
+    const VkRenderPassBeginInfo renderPassBeginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = vkRenderPass_,
         .framebuffer = vkSwapChainFramebuffers_[imageIndex],
@@ -648,15 +656,15 @@ bool App::IsGPUSupported(const VkPhysicalDevice physicalDevice) {
 
     std::cout << "[App] " << vk_to_string(deviceProperties.deviceType) << " : " << deviceProperties.deviceName << '\n';
 
-    this->FindFamilyQueues(physicalDevice);
-
-    const bool supportsExtensions = this->DoesSupportDeviceExtensions(physicalDevice);
-
-    bool supportsSwapChain = false;
-    if (supportsExtensions) {
-	    const SwapChainSupportInfo swapInfo = this->QuerySwapChainSupport(physicalDevice);
-        supportsSwapChain = !swapInfo.presentModes.empty() && !swapInfo.formats.empty();
+    const bool supportsExtensions = this->DoesDeviceSupportExtensions(physicalDevice);
+    if (!supportsExtensions) {
+        throw std::runtime_error("[App] ");
     }
+
+    const SwapChainSupportInfo swapInfo = this->QuerySwapChainSupport(physicalDevice);
+    bool supportsSwapChain = supportsSwapChain = !swapInfo.presentModes.empty() && !swapInfo.formats.empty();
+
+    this->FindFamilyQueues(physicalDevice);
 
     return
 		deviceProperties.deviceType == vkRequiredDeviceType_ &&
@@ -697,14 +705,23 @@ void App::FindFamilyQueues(const VkPhysicalDevice physicalDevice) {
     }
 }
 
-bool App::DoesSupportDeviceExtensions(const VkPhysicalDevice physicalDevice) const {
+bool App::DoesDeviceSupportExtensions(const VkPhysicalDevice physicalDevice) const {
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
 
     std::vector<VkExtensionProperties> extensionProperties(extensionCount);
     vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensionProperties.data());
 
-    return does_contain_names<VkExtensionProperties>(vkDeviceExtensions_, extensionProperties, [](auto& property) { return property.extensionName; });
+    std::string missingExtension;
+    const bool support = does_contain_names<VkExtensionProperties>(vkDeviceExtensions_, extensionProperties, 
+        [](auto& property) { return property.extensionName; },
+        missingExtension);
+
+    if (!support) {
+        std::cout << "\t[App] Device doesn't support extension: " << missingExtension << '\n';
+    }
+
+    return support;
 }
 
 App::SwapChainSupportInfo App::QuerySwapChainSupport(const VkPhysicalDevice physicalDevice) const {
@@ -782,9 +799,14 @@ const char* const* App::GetVulkanValidationLayers(uint32_t& layerCount) const {
     std::vector<VkLayerProperties> supportedLayers(supportedLayerCount);
     vkEnumerateInstanceLayerProperties(&supportedLayerCount, supportedLayers.data());
 
-    does_contain_names<VkLayerProperties>(
-        vkValidationLayers_, supportedLayers, 
-        [](auto& layerProperty) { return layerProperty.layerName; });
+    std::string missingLayer;
+    const bool support = does_contain_names<VkLayerProperties>(vkValidationLayers_, supportedLayers, 
+        [](auto& layerProperty) { return layerProperty.layerName; },
+        missingLayer);
+
+    if (!support) {
+        throw std::runtime_error("[App] Instance does not support validation layer: " + missingLayer);
+    }
 
     return vkValidationLayers_.data();
 #else
@@ -793,7 +815,7 @@ const char* const* App::GetVulkanValidationLayers(uint32_t& layerCount) const {
 #endif
 }
 
-const char* const* App::GetVulkanExtensions(uint32_t& extensionCount) const {
+const char* const* App::GetVulkanInstanceExtensions(uint32_t& extensionCount) const {
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionCount);
 
     // Add extra extensions if needed.

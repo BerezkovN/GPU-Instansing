@@ -11,13 +11,15 @@ add_executable (VulkanGPUInstancing ${GPU_INSTANCING_SOURCES})
 target_include_directories(VulkanGPUInstancing PUBLIC
 	${GLM_INCLUDE_DIRS}
 	${GLFW_INCLUDE_DIRS}
-	Vulkan::Headers
+	${VULKAN_INCLUDE_DIRS}
+	${IMGUI_INCLUDE_DIRS}
 )
 
 target_link_libraries(VulkanGPUInstancing PUBLIC
 	${GLM_LIBRARIES}
 	${GLFW_LIBRARIES}
-	volk
+	${VULKAN_LIBRARIES}
+	${IMGUI_LIBRARIES}
 )
 
 set_target_properties(VulkanGPUInstancing PROPERTIES UNITY_BUILD TRUE)

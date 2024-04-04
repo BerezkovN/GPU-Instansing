@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
+#include <volk.h>
 #include <GLFW/glfw3.h>
 #include <vector>
 #include <optional>
@@ -14,6 +14,7 @@ public:
 	void Start();
 
 private:
+	void InitializeImGUI();
 	void InitializeVulkan();
 	void DestroyVulkan() const;
 
@@ -34,7 +35,7 @@ private:
 
 	bool IsGPUSupported(const VkPhysicalDevice physicalDevice);
 	void FindFamilyQueues(const VkPhysicalDevice physicalDevice);
-	bool DoesSupportDeviceExtensions(const VkPhysicalDevice physicalDevice) const;
+	bool DoesDeviceSupportExtensions(const VkPhysicalDevice physicalDevice) const;
 
 	struct SwapChainSupportInfo;
 	SwapChainSupportInfo QuerySwapChainSupport(VkPhysicalDevice physicalDevice) const;
@@ -44,7 +45,7 @@ private:
 	VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const;
 
 	const char* const* GetVulkanValidationLayers(uint32_t& layerCount) const;
-	const char* const* GetVulkanExtensions(uint32_t& extensionCount) const;
+	const char* const* GetVulkanInstanceExtensions(uint32_t& extensionCount) const;
 
 	GLFWwindow* glfwWindow_ = nullptr;
 
@@ -95,6 +96,7 @@ private:
 	};
 	VkPhysicalDeviceType vkRequiredDeviceType_ = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 	uint32_t swapChainImageCount_ = 2;
+	uint32_t framesInFlightCount_ = 2;
 
 
 	/* * *
