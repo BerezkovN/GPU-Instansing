@@ -3,8 +3,14 @@
 #include "helpers/pch.hpp"
 #include "helpers/App.hpp"
 
+#include <filesystem>
+
 int main()
 {
+#ifdef IDE_ASSET_FOLDER
+    std::filesystem::current_path(IDE_ASSET_FOLDER);
+#endif
+
 	App app{};
 
 	try {
