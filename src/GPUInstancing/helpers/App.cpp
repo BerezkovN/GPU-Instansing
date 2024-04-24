@@ -209,7 +209,7 @@ void App::Update() {
     currentFrameInFlight_ = (currentFrameInFlight_ + 1) % framesInFlightCount_;
 }
 
-void App::RecordCommandBuffer(const VkCommandBuffer commandBuffer, const uint32_t imageIndex) {
+void App::RecordCommandBuffer(VkCommandBuffer commandBuffer, const uint32_t imageIndex) {
 
 	constexpr VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -465,8 +465,8 @@ void App::CreateGraphicsPipeline() {
 
     shaderManager_ = std::make_unique<ShaderManager>(vkLogicalDevice_);
 
-    const VkShaderModule fragModule = shaderManager_->LoadShader("shaders/triangle.frag.spv");
-    const VkShaderModule vertModule = shaderManager_->LoadShader("shaders/triangle.vert.spv");
+    VkShaderModule fragModule = shaderManager_->LoadShader("shaders/triangle.frag.spv");
+    VkShaderModule vertModule = shaderManager_->LoadShader("shaders/triangle.vert.spv");
 
     // TODO: Use pUseSpecializationInfo for GPU Instancing variants.
     const VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
@@ -708,7 +708,7 @@ void App::PickGPU() {
     vkPhysicalDevice_ = physicalDevice;
 }
 
-bool App::IsGPUSupported(const VkPhysicalDevice physicalDevice) {
+bool App::IsGPUSupported(VkPhysicalDevice physicalDevice) {
 
     VkPhysicalDeviceProperties deviceProperties;
     VkPhysicalDeviceFeatures deviceFeatures;
@@ -719,23 +719,23 @@ bool App::IsGPUSupported(const VkPhysicalDevice physicalDevice) {
     std::cout << "[App] " << vk_to_string(deviceProperties.deviceType) << " : " << deviceProperties.deviceName << '\n';
 
     const bool supportsExtensions = this->DoesDeviceSupportExtensions(physicalDevice);
+
     if (!supportsExtensions) {
-        throw std::runtime_error("[App] ");
+        return false;
     }
 
     const SwapChainSupportInfo swapInfo = this->QuerySwapChainSupport(physicalDevice);
-    bool supportsSwapChain = supportsSwapChain = !swapInfo.presentModes.empty() && !swapInfo.formats.empty();
+    bool supportsSwapChain = !swapInfo.presentModes.empty() && !swapInfo.formats.empty();
 
     this->FindFamilyQueues(physicalDevice);
 
     return
 		deviceProperties.deviceType == vkRequiredDeviceType_ &&
-        supportsExtensions &&
         supportsSwapChain &&
         graphicsQueueIndex_.has_value();
 }
 
-void App::FindFamilyQueues(const VkPhysicalDevice physicalDevice) {
+void App::FindFamilyQueues(VkPhysicalDevice physicalDevice) {
 
     uint32_t queueFamilyCount;
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
@@ -767,7 +767,7 @@ void App::FindFamilyQueues(const VkPhysicalDevice physicalDevice) {
     }
 }
 
-bool App::DoesDeviceSupportExtensions(const VkPhysicalDevice physicalDevice) const {
+bool App::DoesDeviceSupportExtensions(VkPhysicalDevice physicalDevice) const {
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
 
@@ -786,7 +786,7 @@ bool App::DoesDeviceSupportExtensions(const VkPhysicalDevice physicalDevice) con
     return support;
 }
 
-App::SwapChainSupportInfo App::QuerySwapChainSupport(const VkPhysicalDevice physicalDevice) const {
+App::SwapChainSupportInfo App::QuerySwapChainSupport(VkPhysicalDevice physicalDevice) const {
     SwapChainSupportInfo details;
 
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, vkSurface_, &details.capabilities);
@@ -880,6 +880,10 @@ const char* const* App::GetVulkanValidationLayers(uint32_t& layerCount) const {
 const char* const* App::GetVulkanInstanceExtensions(uint32_t& extensionCount) const {
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionCount);
 
+    std::cout << "[App] Instance extensions: \n";
+    for (int ind = 0; ind < extensionCount; ind++) {
+        std::cout << '\t' << glfwExtensions[ind] << '\n';
+    }
     // Add extra extensions if needed.
 
     return glfwExtensions;

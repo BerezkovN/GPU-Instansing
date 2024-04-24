@@ -7,7 +7,7 @@ set(IMGUI_DIR "${THIRD_PARTY_DIR}/imgui")
 set(GLM_DIR "${THIRD_PARTY_DIR}/glm")
 
 # Vulkan
-find_package(Vulkan REQUIRED FATAL_ERROR)
+find_package(Vulkan REQUIRED)
 
 # Volk
 if (WIN32)

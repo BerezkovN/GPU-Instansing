@@ -38,16 +38,16 @@ private:
 	void CreateCommandBuffers();
 	void CreateSyncObjects();
 
-	bool IsGPUSupported(const VkPhysicalDevice physicalDevice);
-	void FindFamilyQueues(const VkPhysicalDevice physicalDevice);
-	bool DoesDeviceSupportExtensions(const VkPhysicalDevice physicalDevice) const;
+	bool IsGPUSupported(VkPhysicalDevice physicalDevice);
+	void FindFamilyQueues(VkPhysicalDevice physicalDevice);
+	bool DoesDeviceSupportExtensions(VkPhysicalDevice physicalDevice) const;
 
 	struct SwapChainSupportInfo;
 	SwapChainSupportInfo QuerySwapChainSupport(VkPhysicalDevice physicalDevice) const;
 
-	VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats) const;
-	VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& presentModes) const;
-	VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const;
+	[[nodiscard]] VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats) const;
+	[[nodiscard]] VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& presentModes) const;
+	[[nodiscard]] VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const;
 
 	const char* const* GetVulkanValidationLayers(uint32_t& layerCount) const;
 	const char* const* GetVulkanInstanceExtensions(uint32_t& extensionCount) const;
