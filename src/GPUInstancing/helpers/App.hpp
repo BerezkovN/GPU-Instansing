@@ -12,11 +12,13 @@
 class App {
 public:
 	void Start();
+	void HintWindowResize();
 
 private:
 	void InitializeImGUI();
 	void InitializeVulkan();
-	void DestroyVulkan() const;
+	void DestroyVulkan();
+	void DestroySwapchain();
 
 	void Update();
 	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
@@ -24,8 +26,11 @@ private:
 	void CreateSurface();
 	void PickGPU();
 	void CreateLogicalDevice();
+
 	void CreateSwapChain();
 	void CreateSwapChainImageViews();
+	void RecreateSwapChain();
+
 	void CreateRenderPass();
 	void CreateGraphicsPipeline();
 	void CreateFramebuffers();
@@ -61,6 +66,8 @@ private:
 	std::vector<VkImage> vkSwapChainImages_{};
 	std::vector<VkImageView> vkSwapChainImageViews_{};
 	std::vector<VkFramebuffer> vkSwapChainFramebuffers_{};
+
+	bool resizeFramebuffer_{};
 
 	VkFormat vkSwapChainImageFormat_{};
 	VkExtent2D vkSwapChainExtent_{};
@@ -102,7 +109,7 @@ private:
 	};
 	VkPhysicalDeviceType vkRequiredDeviceType_ = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 	uint32_t swapChainImageCount_ = 2;
-	uint32_t framesInFlightCount_ = 2;
+	uint32_t framesInFlightCount_ = 1;
 
 
 	/* * *

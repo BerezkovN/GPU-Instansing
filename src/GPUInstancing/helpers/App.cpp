@@ -8,12 +8,22 @@
 #include "pch.hpp"
 #include "VkHelper.hpp"
 
+namespace {
+	void glfwWindowResizeCallback(GLFWwindow* window, int width, int height) {
+		const auto app = static_cast<App*>(glfwGetWindowUserPointer(window));
+	    app->HintWindowResize();
+	}
+}
+
 void App::Start() {
 
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindow_ = glfwCreateWindow(800, 600, "GPUInstancing", nullptr, nullptr);
+
+    glfwSetWindowUserPointer(glfwWindow_, this);
+    glfwSetFramebufferSizeCallback(glfwWindow_, glfwWindowResizeCallback);
 
     this->InitializeVulkan();
     this->CreateSurface();
@@ -42,6 +52,12 @@ void App::Start() {
     glfwTerminate();
  
 }
+
+void App::HintWindowResize() {
+
+    resizeFramebuffer_ = true;
+}
+
 
 void App::InitializeImGUI() {
     // ImGui::CreateContext();
@@ -91,22 +107,18 @@ void App::InitializeVulkan() {
     volkLoadInstance(vkInstance_);
 }
 
-void App::DestroyVulkan() const {
+void App::DestroyVulkan() {
 
+    this->DestroySwapchain();
+    
     for (size_t ind = 0; ind < framesInFlightCount_; ind++) {
 		    
 	    vkDestroySemaphore(vkLogicalDevice_, imageAvailableSemaphores_[ind], nullptr);
 	    vkDestroySemaphore(vkLogicalDevice_, renderFinishedSemaphores_[ind], nullptr);
 	    vkDestroyFence(vkLogicalDevice_, inFlightFences_[ind], nullptr);
     }
-
-
         
     vkDestroyCommandPool(vkLogicalDevice_, vkGraphicsCommandPool_, nullptr);
-
-    for (const auto& framebuffer : vkSwapChainFramebuffers_) {
-        vkDestroyFramebuffer(vkLogicalDevice_, framebuffer, nullptr);
-    }
 
     vkDestroyPipeline(vkLogicalDevice_, vkGraphicsPipeline_, nullptr);
     vkDestroyPipelineLayout(vkLogicalDevice_, vkPipelineLayout_, nullptr);
@@ -114,29 +126,51 @@ void App::DestroyVulkan() const {
 
     shaderManager_->DestroyAllShaders();
 
-    for (const auto imageView : vkSwapChainImageViews_) {
-        vkDestroyImageView(vkLogicalDevice_, imageView, nullptr);
-    }
-
-    vkDestroySwapchainKHR(vkLogicalDevice_, vkSwapChain_, nullptr);
     vkDestroyDevice(vkLogicalDevice_, nullptr);
     vkDestroySurfaceKHR(vkInstance_, vkSurface_, nullptr);
     vkDestroyInstance(vkInstance_, nullptr);
     volkFinalize();
 }
 
+void App::DestroySwapchain() {
+
+    for (const auto& framebuffer : vkSwapChainFramebuffers_) {
+        vkDestroyFramebuffer(vkLogicalDevice_, framebuffer, nullptr);
+    }
+
+    for (const auto imageView : vkSwapChainImageViews_) {
+        vkDestroyImageView(vkLogicalDevice_, imageView, nullptr);
+    }
+    vkDestroySwapchainKHR(vkLogicalDevice_, vkSwapChain_, nullptr);
+}
+
 void App::Update() {
 
     vkWaitForFences(vkLogicalDevice_, 1, &inFlightFences_[currentFrameInFlight_], VK_TRUE, UINT64_MAX);
-    vkResetFences(vkLogicalDevice_, 1, &inFlightFences_[currentFrameInFlight_]);
 
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(vkLogicalDevice_, vkSwapChain_, UINT64_MAX, imageAvailableSemaphores_[currentFrameInFlight_], VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(vkLogicalDevice_, vkSwapChain_, UINT64_MAX, imageAvailableSemaphores_[currentFrameInFlight_], VK_NULL_HANDLE, &imageIndex);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || resizeFramebuffer_) {
+
+        this->RecreateSwapChain();
+        resizeFramebuffer_ = false;
+
+        std::cout << "[App] Swap chain was recreated\n";
+        return;
+    }
+    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        throw std::runtime_error("[App] Error acquiring next swap chain: " + std::to_string(result));
+    }
+    if (result == VK_SUBOPTIMAL_KHR) {
+        std::cout << "[App] The current swap chain is suboptimal\n";
+    }
+
+    vkResetFences(vkLogicalDevice_, 1, &inFlightFences_[currentFrameInFlight_]);
 
     vkResetCommandBuffer(graphicsCommandBuffers_[currentFrameInFlight_], 0);
     this->RecordCommandBuffer(graphicsCommandBuffers_[currentFrameInFlight_], imageIndex);
 
-    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores_[currentFrameInFlight_]};
+    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores_[currentFrameInFlight_] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
     VkSemaphore signalSemaphore[] = { renderFinishedSemaphores_[currentFrameInFlight_]};
@@ -153,7 +187,7 @@ void App::Update() {
     };
 
 
-    VkResult result = vkQueueSubmit(graphicsQueue_, 1, &submitInfo, inFlightFences_[currentFrameInFlight_]);
+    result = vkQueueSubmit(graphicsQueue_, 1, &submitInfo, inFlightFences_[currentFrameInFlight_]);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[App] Error submitting a graphics queue: " + std::to_string(result));
     }
@@ -364,6 +398,18 @@ void App::CreateSwapChainImageViews() {
         }
     }
 
+}
+
+void App::RecreateSwapChain() {
+
+    // TODO: Implement async swap chain recreation.
+    vkDeviceWaitIdle(vkLogicalDevice_);
+
+    this->DestroySwapchain();
+
+    this->CreateSwapChain();
+    this->CreateSwapChainImageViews();
+    this->CreateFramebuffers();
 }
 
 void App::CreateRenderPass() {
