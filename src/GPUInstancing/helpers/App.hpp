@@ -45,6 +45,8 @@ private:
 	struct SwapChainSupportInfo;
 	SwapChainSupportInfo QuerySwapChainSupport(VkPhysicalDevice physicalDevice) const;
 
+    void GetScreenSize(int& width, int& height) const;
+
 	[[nodiscard]] VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats) const;
 	[[nodiscard]] VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& presentModes) const;
 	[[nodiscard]] VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const;
@@ -52,48 +54,48 @@ private:
 	const char* const* GetVulkanValidationLayers(uint32_t& layerCount) const;
 	const char* const* GetVulkanInstanceExtensions(uint32_t& extensionCount) const;
 
-	GLFWwindow* glfwWindow_ = nullptr;
+	GLFWwindow* m_window = nullptr;
 
-	std::unique_ptr<ShaderManager> shaderManager_;
+	std::unique_ptr<ShaderManager> m_shaderManager;
 
-	VkInstance vkInstance_ = VK_NULL_HANDLE;
-	VkPhysicalDevice vkPhysicalDevice_ = VK_NULL_HANDLE;
-	VkDevice vkLogicalDevice_ = VK_NULL_HANDLE;
-	VkSurfaceKHR vkSurface_ = VK_NULL_HANDLE;
-	VkPipeline vkGraphicsPipeline_ = VK_NULL_HANDLE;
+	VkInstance m_instance = VK_NULL_HANDLE;
+	VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+	VkDevice m_logicalDevice = VK_NULL_HANDLE;
+	VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+	VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
 
-	VkSwapchainKHR vkSwapChain_ = VK_NULL_HANDLE;
-	std::vector<VkImage> vkSwapChainImages_{};
-	std::vector<VkImageView> vkSwapChainImageViews_{};
-	std::vector<VkFramebuffer> vkSwapChainFramebuffers_{};
+	VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
+	std::vector<VkImage> m_swapChainImages{};
+	std::vector<VkImageView> m_swapChainImageViews{};
+	std::vector<VkFramebuffer> m_swapChainFramebuffers{};
 
-	bool resizeFramebuffer_{};
+	bool m_mustResize{};
 
-	VkFormat vkSwapChainImageFormat_{};
-	VkExtent2D vkSwapChainExtent_{};
+	VkFormat m_swapChainImageFormat{};
+	VkExtent2D m_swapChainExtent{};
 
-	VkRenderPass vkRenderPass_ = VK_NULL_HANDLE;
-	VkPipelineLayout vkPipelineLayout_ = VK_NULL_HANDLE;
+	VkRenderPass m_renderPass = VK_NULL_HANDLE;
+	VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
 
-	VkCommandPool vkGraphicsCommandPool_ = VK_NULL_HANDLE;
+	VkCommandPool m_graphicsCommandPool = VK_NULL_HANDLE;
 
 	/* * *
 	 * Per frame-in-flight objects
 	 */
 
-	std::vector<VkCommandBuffer> graphicsCommandBuffers_{};
-	std::vector<VkSemaphore> imageAvailableSemaphores_{};
-	std::vector<VkSemaphore> renderFinishedSemaphores_{};
-	std::vector<VkFence> inFlightFences_{};
+	std::vector<VkCommandBuffer> m_graphicsCommandBuffers{};
+	std::vector<VkSemaphore> m_imageAvailableSemaphores{};
+	std::vector<VkSemaphore> m_renderFinishedSemaphores{};
+	std::vector<VkFence> m_inFlightFences{};
 
-	uint32_t currentFrameInFlight_{};
+	uint32_t m_currentFrameInFlight{};
 
 	/**
 	 * Currently, represents both graphics and presentation queue.
 	 */
-	VkQueue graphicsQueue_ = VK_NULL_HANDLE;
-	std::optional<uint32_t> graphicsQueueIndex_{};
-	float graphicsQueuePriority_{ 1.0f };
+	VkQueue m_graphicsQueue = VK_NULL_HANDLE;
+	std::optional<uint32_t> m_graphicsQueueIndex{};
+	float m_graphicsQueuePriority{1.0f };
 
 	/* * *
 	 * Config
@@ -101,30 +103,25 @@ private:
 	 * TODO:
 	 * 1. Implement separation of presentation and graphics queue.
 	 */
-	std::vector<const char*> vkValidationLayers_ = {
-		"VK_LAYER_KHRONOS_validation"
-	};
-	std::vector<const char*> vkDeviceExtensions_ = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
-	};
-	VkPhysicalDeviceType vkRequiredDeviceType_ = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-	uint32_t swapChainImageCount_ = 2;
-	uint32_t framesInFlightCount_ = 1;
 
+    struct Config {
+        std::vector<const char*> vkValidationLayers = {
+                "VK_LAYER_KHRONOS_validation"
+        };
+        std::vector<const char*> vkDeviceExtensions = {
+                VK_KHR_SWAPCHAIN_EXTENSION_NAME
+        };
+        VkPhysicalDeviceType vkRequiredDeviceType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 
-	/* * *
-	 * Inner classes and structs
-	 */
+        VkFormat vkPreferredSurfaceFormat = VK_FORMAT_B8G8R8A8_SRGB;
+        VkColorSpaceKHR vkPreferredSurfaceColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 
-	/**
-	 * WIP
-	 */
-	struct QueueInfo
-	{
-		VkQueue vkQueue = VK_NULL_HANDLE;
-		std::optional<uint32_t> familyIndex{};
-		float priority{ 1.0f };
-	};
+        VkPresentModeKHR vkPreferredPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+
+        uint32_t swapChainImageCount = 2;
+        uint32_t framesInFlight = 2;
+    } m_config;
+
 
 	struct SwapChainSupportInfo
 	{
