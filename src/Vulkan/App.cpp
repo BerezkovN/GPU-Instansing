@@ -315,8 +315,6 @@ void App::RecordCommandBuffer(VkCommandBuffer commandBuffer, const uint32_t imag
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_renderPipeline->GetVkPipeline());
-
     const VkViewport viewport = {
 	    .x = 0, .y = 0,
 	    .width = static_cast<float>(swapchainExtent.width),
@@ -331,6 +329,8 @@ void App::RecordCommandBuffer(VkCommandBuffer commandBuffer, const uint32_t imag
         .extent =swapchainExtent
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    m_renderPipeline->BeforeRender(commandBuffer);
 
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 

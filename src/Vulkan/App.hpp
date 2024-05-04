@@ -98,6 +98,4 @@ private:
 	 */
 
     std::unique_ptr<Config> m_config;
-
-
 };

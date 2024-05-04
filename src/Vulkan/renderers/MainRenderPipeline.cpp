@@ -2,6 +2,12 @@
 
 #include "../pch.hpp"
 
+struct Vertex
+{
+    glm::vec3 position;
+    int color;
+};
+
 MainRenderPipeline::MainRenderPipeline(const Device* device, const IRenderPass* renderPass, VkShaderModule fragModule, VkShaderModule vertModule) {
 
     m_device = device;
@@ -36,12 +42,36 @@ MainRenderPipeline::MainRenderPipeline(const Device* device, const IRenderPass* 
         .pDynamicStates = dynamicStates.data()
     };
 
+    VkVertexInputBindingDescription bindingDescription = {
+        // What the hell is this?
+        .binding = 0,
+        .stride = sizeof(Vertex),
+        // TODO: Instancing
+        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+    };
+
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+    attributeDescriptions.push_back({
+        .location = 0,
+        .binding = 0,
+        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .offset = 0
+    });
+
+    attributeDescriptions.push_back({
+        .location = 1,
+        .binding = 0,
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .offset = offsetof(Vertex, color)
+    });
+
+
     VkPipelineVertexInputStateCreateInfo vertexInputStateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 0,
-        .pVertexBindingDescriptions = nullptr,
-        .vertexAttributeDescriptionCount = 0,
-        .pVertexAttributeDescriptions = nullptr
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &bindingDescription,
+        .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
+        .pVertexAttributeDescriptions = attributeDescriptions.data()
     };
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = {
@@ -131,13 +161,86 @@ MainRenderPipeline::MainRenderPipeline(const Device* device, const IRenderPass* 
     }
 
     spdlog::info("[MainRenderPipeline] Graphics pipeline was created successfully!");
+
+    this->CreateVertexBuffer();
 }
 
 void MainRenderPipeline::Destroy() {
+
+    vkDestroyBuffer(m_device->GetVkDevice(), m_vertexBuffer, nullptr);
+    vkFreeMemory(m_device->GetVkDevice(), m_vertexBufferMemory, nullptr);
+
 	vkDestroyPipeline(m_device->GetVkDevice(), m_pipeline, nullptr);
 	vkDestroyPipelineLayout(m_device->GetVkDevice(), m_pipelineLayout, nullptr);
+
+    vkDestroyBuffer(m_device->GetVkDevice(), m_vertexBuffer, nullptr);
+}
+
+void MainRenderPipeline::BeforeRender(VkCommandBuffer commandBuffer) {
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+
+    VkBuffer vertexBuffers[] = { m_vertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 }
 
 VkPipeline MainRenderPipeline::GetVkPipeline() const {
 	return m_pipeline;
+}
+
+void MainRenderPipeline::CreateVertexBuffer() {
+
+    const std::vector<Vertex> vertices = {
+        {{-0.5f, -0.5f, 0.0f}, -1},
+        {{ 0.5f, -0.5f, 0.0f}, 0xFF03102},
+        {{ 0.0f,  0.5f, 0.0f}, -1},
+    };
+
+    const VkBufferCreateInfo bufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = sizeof(Vertex) * vertices.size(),
+        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    VkResult result = vkCreateBuffer(m_device->GetVkDevice(), &bufferInfo, nullptr, &m_vertexBuffer);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[MainRenderPipeline] Could not create a vertex buffer");
+    }
+
+    VkMemoryRequirements memoryRequirements;
+    vkGetBufferMemoryRequirements(m_device->GetVkDevice(), m_vertexBuffer, &memoryRequirements);
+
+    VkMemoryAllocateInfo memoryAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = memoryRequirements.size,
+        // TODO: Learn more about this
+        .memoryTypeIndex = this->FindMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+    };
+
+    result = vkAllocateMemory(m_device->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_vertexBufferMemory);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[MainRenderPipeline] Could not allocate memory for the vertex buffer");
+    }
+
+    vkBindBufferMemory(m_device->GetVkDevice(), m_vertexBuffer, m_vertexBufferMemory, 0);
+
+    void* data;
+    vkMapMemory(m_device->GetVkDevice(), m_vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+    std::memcpy(data, vertices.data(), bufferInfo.size);
+    vkUnmapMemory(m_device->GetVkDevice(), m_vertexBufferMemory);
+
+}
+
+uint32_t MainRenderPipeline::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memoryProperties;
+    vkGetPhysicalDeviceMemoryProperties(m_device->GetVkPhysicalDevice(), &memoryProperties);
+
+    for (uint32_t ind = 0; ind < memoryProperties.memoryTypeCount; ind++) {
+	    if (typeFilter & (1 << ind) && (memoryProperties.memoryTypes[ind].propertyFlags & properties)) {
+            return ind;
+	    }
+    }
+
+    throw std::runtime_error("[MainRenderPipeline] Could not find correct memory type");
 }
