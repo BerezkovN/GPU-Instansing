@@ -15,3 +15,5 @@
 #include <glm/mat4x4.hpp>
 
 #include <imgui.h>
+
+#include <spdlog/spdlog.h>

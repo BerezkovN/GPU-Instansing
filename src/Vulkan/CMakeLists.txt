@@ -13,6 +13,7 @@ target_include_directories(VulkanGPUInstancing PUBLIC
 	${GLFW_INCLUDE_DIRS}
 	${VULKAN_INCLUDE_DIRS}
 	${IMGUI_INCLUDE_DIRS}
+	${SPDLOG_INCLUDE_DIRS}
 )
 
 target_link_libraries(VulkanGPUInstancing PUBLIC
@@ -20,11 +21,8 @@ target_link_libraries(VulkanGPUInstancing PUBLIC
 	${GLFW_LIBRARIES}
 	${VULKAN_LIBRARIES}
 	${IMGUI_LIBRARIES}
+	${SPDLOG_LIBARIES}
 )
-
-set_target_properties(VulkanGPUInstancing PROPERTIES UNITY_BUILD TRUE)
-set_target_properties(VulkanGPUInstancing PROPERTIES UNITY_BUILD_MODE BATCH)
-set_target_properties(VulkanGPUInstancing PROPERTIES UNITY_BUILD_BATCH_SIZE 4)
 
 target_compile_definitions(VulkanGPUInstancing PRIVATE IDE_ASSET_FOLDER="${CMAKE_CURRENT_SOURCE_DIR}/assets")
 

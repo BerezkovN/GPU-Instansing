@@ -7,8 +7,9 @@ if (POLICY CMP0141)
 endif()
 cmake_policy(SET CMP0060 NEW)
 
-project(VulkanTests LANGUAGES CXX)
+project(GPUInstancing LANGUAGES CXX)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/third_party.cmake")
 
-add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/src/GPUInstancing/")
+add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/src/Vulkan/")
+add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/src/GFX/")

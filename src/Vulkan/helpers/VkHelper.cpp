@@ -1,6 +1,6 @@
 #include "VkHelper.hpp"
 
-inline std::string vk_to_string(const VkPhysicalDeviceType deviceType) {
+std::string vk_to_string(const VkPhysicalDeviceType deviceType) {
 	switch (deviceType)  // NOLINT(clang-diagnostic-switch-enum)
 	{
 		case VK_PHYSICAL_DEVICE_TYPE_OTHER:

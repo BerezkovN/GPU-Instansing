@@ -4,12 +4,12 @@
 #include <filesystem>
 #include <ranges>
 
-ShaderManager::ShaderManager(const VkDevice vkLogicalDevice) : vkLogicalDevice_(vkLogicalDevice) {}
+ShaderManager::ShaderManager(const Device* device) : m_device(device) {}
 
 void ShaderManager::DestroyAllShaders() {
 
 	for (const auto& shaderModule : shaderMap_ | std::views::values) {
-		vkDestroyShaderModule(vkLogicalDevice_, shaderModule, nullptr);
+		vkDestroyShaderModule(m_device->GetVkDevice(), shaderModule, nullptr);
 	}
 
 	shaderMap_.clear();
@@ -26,7 +26,7 @@ VkShaderModule ShaderManager::LoadShader(const std::string& path) {
 	};
 
 	VkShaderModule shaderModule;
-	const VkResult result = vkCreateShaderModule(vkLogicalDevice_, &createInfo, nullptr, &shaderModule);
+	const VkResult result = vkCreateShaderModule(m_device->GetVkDevice(), &createInfo, nullptr, &shaderModule);
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("[ShaderManager] Could not create shader module: " + std::to_string(result));
 	}
@@ -41,7 +41,6 @@ std::vector<char> ShaderManager::ReadFile(const std::string& path)
 	std::ifstream file(path, std::ios::binary | std::ios::ate);
 
 	if (!file.is_open()) {
-		std::cout << std::filesystem::current_path() << '\n';
 		throw std::runtime_error("[ShaderManager] Could not load shader: " + path);
 	}
 

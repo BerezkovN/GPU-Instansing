@@ -6,9 +6,9 @@
 
 #include <volk.h>
 
-inline std::string vk_to_string(VkPhysicalDeviceType deviceType);
+std::string vk_to_string(VkPhysicalDeviceType deviceType);
 
-inline std::string vk_to_string(const VkQueueFlags queueFlags);
+std::string vk_to_string(const VkQueueFlags queueFlags);
 
 /**
  * Checks if all required names are found in present names.

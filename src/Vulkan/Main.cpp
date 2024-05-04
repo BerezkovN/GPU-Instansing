@@ -1,7 +1,5 @@
-﻿#include "GPUInstancing.hpp"
-
-#include "helpers/pch.hpp"
-#include "helpers/App.hpp"
+﻿#include "pch.hpp"
+#include "App.hpp"
 
 #include <filesystem>
 
@@ -11,14 +9,13 @@ int main()
     std::filesystem::current_path(IDE_ASSET_FOLDER);
 #endif
 
-	App app{};
-
 	try {
-		app.Start();
+	    App app{};
+        app.Run();
+		app.Destroy();
 	}
 	catch (const std::exception& e) {
-		std::cerr << "!ERROR!\n";
-		std::cerr << e.what() << "\n";
+        spdlog::error("Unhandled exception: {}", e.what());
 		return EXIT_FAILURE;
 	}
 
