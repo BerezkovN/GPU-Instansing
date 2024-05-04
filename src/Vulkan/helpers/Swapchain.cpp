@@ -17,10 +17,14 @@ void Swapchain::Destroy() {
         vkDestroyImageView(m_device->GetVkDevice(), imageView, nullptr);
     }
     vkDestroySwapchainKHR(m_device->GetVkDevice(), m_swapChain, nullptr);
+
+    m_swapChainImageViews.clear();
+    m_swapChainImages.clear();
 }
 
 void Swapchain::Resize() {
 
+    spdlog::info("[Swapchain] Resizing swapchain");
     this->Destroy();
     this->Initialize();
 }
@@ -46,16 +50,16 @@ VkFormat Swapchain::GetFormat() const {
 }
 
 void Swapchain::Initialize() {
-    const Device::SurfaceCapabilities* capabilities = m_device->GetSurfaceCapabilities();
+    const Device::SurfaceCapabilities capabilities = m_device->QuerySurfaceCapabilities(m_surface);
 
-    const VkSurfaceFormatKHR surfaceFormat = this->ChooseSurfaceFormat(capabilities->formats);
-    const VkPresentModeKHR presentMode = this->ChoosePresentMode(capabilities->presentModes);
-    const VkExtent2D extent = this->ChooseSwapExtent(capabilities->surfaceCapabilities);
+    const VkSurfaceFormatKHR surfaceFormat = this->ChooseSurfaceFormat(capabilities.formats);
+    const VkPresentModeKHR presentMode = this->ChoosePresentMode(capabilities.presentModes);
+    const VkExtent2D extent = this->ChooseSwapExtent(capabilities.surfaceCapabilities);
 
-    spdlog::info("[Swapchain] Maximum supported number of swap chain images by the device: {}", capabilities->surfaceCapabilities.maxImageCount);
-    if (m_app->GetSwapchainImageCount() > capabilities->surfaceCapabilities.maxImageCount) {
+    spdlog::info("[Swapchain] Maximum supported number of swap chain images by the device: {}", capabilities.surfaceCapabilities.maxImageCount);
+    if (m_app->GetSwapchainImageCount() > capabilities.surfaceCapabilities.maxImageCount) {
         spdlog::error("[Swapchain] The device doesn't support swap chain image count of {}", m_app->GetSwapchainImageCount());
-        m_app->SetSwapchainImageCount(capabilities->surfaceCapabilities.maxImageCount);
+        m_app->SetSwapchainImageCount(capabilities.surfaceCapabilities.maxImageCount);
     }
 
     VkSwapchainCreateInfoKHR createInfo = {

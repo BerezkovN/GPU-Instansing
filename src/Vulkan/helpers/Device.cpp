@@ -106,28 +106,14 @@ void Device::WaitIdle() {
     vkDeviceWaitIdle(m_logicalDevice);
 }
 
-bool Device::PrepareForRendering(const Surface* surface) {
+bool Device::DoesSupportRendering(const Surface* surface) {
 
     if (!this->DoesSupportExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
         return false;
     }
 
-    m_surfaceCapabilities = std::make_unique<SurfaceCapabilities>();
-
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, surface->GetVkSurface(), &m_surfaceCapabilities->surfaceCapabilities);
-
-    uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, surface->GetVkSurface(), &formatCount, nullptr);
-    m_surfaceCapabilities->formats.resize(formatCount);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, surface->GetVkSurface(), &formatCount, m_surfaceCapabilities->formats.data());
-
-    uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, surface->GetVkSurface(), &presentModeCount, nullptr);
-    m_surfaceCapabilities->presentModes.resize(presentModeCount);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, surface->GetVkSurface(), &presentModeCount, m_surfaceCapabilities->presentModes.data());
-
-    if (formatCount == 0 || presentModeCount == 0) {
-        m_surfaceCapabilities = nullptr;
+    const auto capabilities = this->QuerySurfaceCapabilities(surface);
+    if (capabilities.formats.empty() || capabilities.presentModes.empty()) {
         return false;
     }
 
@@ -226,8 +212,22 @@ void Device::Initialize() {
     }
 }
 
-const Device::SurfaceCapabilities* Device::GetSurfaceCapabilities() const {
-	return m_surfaceCapabilities.get();
+Device::SurfaceCapabilities Device::QuerySurfaceCapabilities(const Surface* surface) const {
+    SurfaceCapabilities capabilities;
+
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, surface->GetVkSurface(), &capabilities.surfaceCapabilities);
+
+    uint32_t formatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, surface->GetVkSurface(), &formatCount, nullptr);
+    capabilities.formats.resize(formatCount);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, surface->GetVkSurface(), &formatCount, capabilities.formats.data());
+
+    uint32_t presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, surface->GetVkSurface(), &presentModeCount, nullptr);
+    capabilities.presentModes.resize(presentModeCount);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, surface->GetVkSurface(), &presentModeCount, capabilities.presentModes.data());
+
+    return capabilities;
 }
 
 VkPhysicalDevice Device::GetVkPhysicalDevice() const {

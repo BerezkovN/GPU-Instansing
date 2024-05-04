@@ -25,7 +25,7 @@ App::App() {
     m_surface = std::make_unique<Surface>(this, m_window);
     m_mainDevice = Device::FindDevice(this, m_mainDeviceID);
 
-    if (!m_mainDevice->PrepareForRendering(m_surface.get())) {
+    if (!m_mainDevice->DoesSupportRendering(m_surface.get())) {
         throw std::runtime_error("[App] Main device doesn't support rendering");
     }
 
@@ -162,10 +162,6 @@ void App::DestroyVulkan() {
 
 void App::ChooseMainDevice() {
 
-    if (m_config->mainDeviceID.has_value()) {
-        return;
-    }
-
     uint32_t deviceCount;
     vkEnumeratePhysicalDevices(m_instance, &deviceCount, nullptr);
 
@@ -199,6 +195,12 @@ void App::ChooseMainDevice() {
 
     }
 
+    if (m_config->mainDeviceID.has_value()) {
+        m_mainDeviceID = m_config->mainDeviceID.value();
+        spdlog::info("[App] Config queried a device with ID: {}", m_config->mainDeviceID.value());
+        return;
+    }
+
     spdlog::info("[App] Choose device: (device index)");
 
     int specifiedDeviceIndex;
@@ -219,7 +221,6 @@ void App::Update() {
         this->ResizeImmediately();
         m_mustResize = false;
 
-        std::cout << "[App] Swap chain was recreated\n";
         return;
     }
     VkResult result = vkAcquireNextImageKHR(m_mainDevice->GetVkDevice(), m_swapchain->GetVkSwapchain(), UINT64_MAX, m_imageAvailableSemaphores[m_currentFrameInFlight], VK_NULL_HANDLE, &imageIndex);
@@ -274,7 +275,7 @@ void App::Update() {
 
     result = vkQueuePresentKHR(m_graphicsQueue->GetVkQueue(), &presentInfo);
     if (result != VK_SUCCESS) {
-        throw std::runtime_error("[App] Error presenting graphics queue: " + std::to_string(result));
+        //throw std::runtime_error("[App] Error presenting graphics queue: " + std::to_string(result));
     }
 
     m_currentFrameInFlight = (m_currentFrameInFlight + 1) % m_config->framesInFlight;

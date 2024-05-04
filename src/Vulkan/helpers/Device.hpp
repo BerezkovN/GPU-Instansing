@@ -35,7 +35,7 @@ public:
     void Destroy();
 
     void WaitIdle();
-    bool PrepareForRendering(const Surface* surface);
+    bool DoesSupportRendering(const Surface* surface);
     bool DoesSupportExtension(const std::string& extensionName);
 
 	/**
@@ -46,7 +46,7 @@ public:
 
     void Initialize();
 
-    [[nodiscard]] const SurfaceCapabilities* GetSurfaceCapabilities() const;
+    [[nodiscard]] SurfaceCapabilities QuerySurfaceCapabilities(const Surface* surface) const;
     [[nodiscard]] VkPhysicalDevice GetVkPhysicalDevice() const;
     [[nodiscard]] VkDevice GetVkDevice() const;
 
@@ -64,8 +64,6 @@ private:
     std::vector<int> m_queueFamilyCounters;
 
     std::vector<std::shared_ptr<DeviceQueue>> m_queues;
-
-    std::unique_ptr<SurfaceCapabilities> m_surfaceCapabilities;
 
     VkDevice m_logicalDevice;
 };
