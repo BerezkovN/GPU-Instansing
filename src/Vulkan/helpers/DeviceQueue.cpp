@@ -1,5 +1,16 @@
 #include "DeviceQueue.hpp"
 
+std::string DeviceQueue::QueueTypeToString(DeviceQueue::Type type) {
+	switch (type) {
+	case Graphics:
+		return "Graphics";
+	case Transfer:
+		return "Transfer";
+	default:
+		return "Unknown";
+	}
+}
+
 DeviceQueue::DeviceQueue(uint32_t familyIndex, uint32_t queueIndex, float priority) {
 	m_familyIndex = familyIndex;
 	m_queueIndex = queueIndex;

@@ -56,7 +56,13 @@ void Swapchain::Initialize() {
     const VkPresentModeKHR presentMode = this->ChoosePresentMode(capabilities.presentModes);
     const VkExtent2D extent = this->ChooseSwapExtent(capabilities.surfaceCapabilities);
 
-    spdlog::info("[Swapchain] Maximum supported number of swap chain images by the device: {}", capabilities.surfaceCapabilities.maxImageCount);
+    static bool printedInformationOnce = false;
+
+    if (!printedInformationOnce) {
+        spdlog::info("[Swapchain] Maximum supported number of swap chain images by the device: {}", capabilities.surfaceCapabilities.maxImageCount);
+        printedInformationOnce = true;
+    }
+
     if (m_app->GetSwapchainImageCount() > capabilities.surfaceCapabilities.maxImageCount) {
         spdlog::error("[Swapchain] The device doesn't support swap chain image count of {}", m_app->GetSwapchainImageCount());
         m_app->SetSwapchainImageCount(capabilities.surfaceCapabilities.maxImageCount);

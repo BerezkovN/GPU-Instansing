@@ -15,7 +15,7 @@ public:
 		const Device* device;
 		const IRenderPass* renderPass;
 		const DeviceQueue* graphicsQueue;
-		const DeviceQueue* transferQueue;
+		std::optional<const DeviceQueue*> transferQueue;
 		VkShaderModule fragmentShader;
 		VkShaderModule vertexShader;
 	};
@@ -41,18 +41,21 @@ private:
 	uint32_t m_framesInFlight;
 	const Device* m_device;
 	const IRenderPass* m_renderPass;
+	
 	const DeviceQueue* m_graphicsQueue;
-	const DeviceQueue* m_transferQueue;
-
-	VkPipelineLayout m_pipelineLayout;
-	VkPipeline m_pipeline;
-
 	VkCommandPool m_graphicsCommandPool;
-	VkCommandPool m_transferCommandPool;
-
 	std::vector<VkCommandBuffer> m_graphicsCommandBuffers{};
+
+	std::optional<const DeviceQueue*> m_transferQueue;
+	std::optional<VkCommandPool> m_transferCommandPool;
+	/**
+	 * Could be from the graphics command pool
+	 */
 	VkCommandBuffer m_transferCommandBuffer;
 
 	std::unique_ptr<GenericBuffer> m_vertexBuffer;
+
+	VkPipelineLayout m_pipelineLayout;
+	VkPipeline m_pipeline;
 
 };

@@ -72,7 +72,7 @@ private:
 	std::unique_ptr<IRenderPipeline> m_renderPipeline;
 
 	/* * *
-	 * Per frame-in-flight objects
+	 * Frame synchronization objects.
 	 */
 
 	std::vector<VkSemaphore> m_imageAvailableSemaphores{};
@@ -81,16 +81,8 @@ private:
 
 	uint32_t m_currentFrameInFlight{};
 
-	/**
-	 * Currently, represents both graphics and presentation queue.
-	 */
 	std::shared_ptr<DeviceQueue> m_graphicsQueue;
-	std::shared_ptr<DeviceQueue> m_transferQueue;
-
-	/* * *
-	 * TODO:
-	 * 1. Implement separation of presentation and graphics queue.
-	 */
+    std::optional<std::shared_ptr<DeviceQueue>> m_transferQueue;
 
     std::unique_ptr<Config> m_config;
 };

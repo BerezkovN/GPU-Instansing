@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <optional>
 
 #include "Surface.hpp"
 #include "DeviceQueue.hpp"
@@ -42,7 +43,7 @@ public:
 	 * \param surface You must pass a surface if the queue type is Graphics.
 	 * \return Handle to not yet initialized queue.
 	 */
-    std::shared_ptr<DeviceQueue> AddQueue(DeviceQueue::Type queueType, float priority, const Surface* surface = nullptr);
+    std::optional<std::shared_ptr<DeviceQueue>> AddQueue(DeviceQueue::Type queueType, float priority, const Surface* surface = nullptr);
 
     void Initialize();
 
@@ -64,9 +65,9 @@ private:
     std::vector<VkExtensionProperties> m_supportedExtensions;
 
     std::vector<VkQueueFamilyProperties> m_queueFamilyProperties;
-    std::vector<int> m_queueFamilyCounters;
 
-    std::vector<std::shared_ptr<DeviceQueue>> m_queues;
+    typedef std::vector<std::shared_ptr<DeviceQueue>> QueueFamily;
+	std::vector<QueueFamily> m_queueFamilies;
 
     VkDevice m_logicalDevice;
 };

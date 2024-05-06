@@ -13,8 +13,6 @@ DeviceID Device::CalculateID(const VkPhysicalDeviceProperties& deviceProperties)
     std::string name = deviceProperties.deviceName;
     result = 31 * result + std::hash<std::string>{}(name);
 
-
-
     return result;
 }
 
@@ -49,7 +47,7 @@ Device::Device(const App* app, VkPhysicalDevice physicalDevice) {
     m_queueFamilyProperties.resize(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, m_queueFamilyProperties.data());
 
-    m_queueFamilyCounters.resize(queueFamilyCount);
+    m_queueFamilies.resize(queueFamilyCount);
 
     spdlog::info("[Device] Supported queue families:");
     for (const auto& queueFamily : m_queueFamilyProperties) {
@@ -59,6 +57,9 @@ Device::Device(const App* app, VkPhysicalDevice physicalDevice) {
         spdlog::info("\tQueue count: {}", queueFamily.queueCount);
         spdlog::info("\tQueue flags: {}", queueFlagName);
     }
+
+    // Initialized later.
+    m_logicalDevice = VK_NULL_HANDLE;
 }
 
 std::unique_ptr<Device> Device::FindDevice(const App* app, DeviceID deviceID) {
@@ -104,8 +105,8 @@ void Device::Destroy() {
     m_logicalDevice = VK_NULL_HANDLE;
 
     m_queueFamilyProperties.clear();
-    m_queueFamilyCounters.clear();
-    m_queues.clear();
+    m_queueFamilies.clear();
+    m_queueFamilies.clear();
 }
 
 void Device::WaitIdle() const {
@@ -138,7 +139,7 @@ bool Device::DoesSupportExtension(const std::string& extensionName) {
     return support;
 }
 
-std::shared_ptr<DeviceQueue> Device::AddQueue(const DeviceQueue::Type queueType, float priority, const Surface* surface) {
+std::optional<std::shared_ptr<DeviceQueue>> Device::AddQueue(const DeviceQueue::Type queueType, float priority, const Surface* surface) {
 
     uint32_t familyIndex{};
 
@@ -153,30 +154,42 @@ std::shared_ptr<DeviceQueue> Device::AddQueue(const DeviceQueue::Type queueType,
         throw std::runtime_error("[Device] Unsupported queue type");
     }
 
-    const auto result = std::make_shared<DeviceQueue>(familyIndex, m_queueFamilyCounters[familyIndex], priority);
-    m_queues.push_back(result);
-    m_queueFamilyCounters[familyIndex] += 1;
+    if (m_queueFamilies[familyIndex].size() >= m_queueFamilyProperties[familyIndex].queueCount) {
+        spdlog::warn("[Device] Not enough queues for the {} in the queue family {}", DeviceQueue::QueueTypeToString(queueType), familyIndex);
+        return std::nullopt;
+    }
 
-    return result;
+    const auto result = std::make_shared<DeviceQueue>(familyIndex, m_queueFamilies[familyIndex].size(), priority);
+    m_queueFamilies[familyIndex].push_back(result);
+
+    return std::make_optional(result);
 }
 
 void Device::Initialize() {
 
     std::vector<VkDeviceQueueCreateInfo> graphicsQueueInfos;
-    for (const auto& queue : m_queues) {
+    std::vector<std::vector<float>> priorities(m_queueFamilies.size());
 
-        float priority = queue->GetPriority();
+    for (size_t familyInd = 0; familyInd < m_queueFamilies.size(); familyInd++) {
+
+        if (m_queueFamilies[familyInd].empty()) {
+            continue;
+        }
+
+        priorities[familyInd].reserve(m_queueFamilies[familyInd].size());
+
+        for (const auto& queue : m_queueFamilies[familyInd]) {
+            priorities[familyInd].push_back(queue->GetPriority());
+        }
 
         VkDeviceQueueCreateInfo info = {
                 .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                .queueFamilyIndex = queue->GetFamilyIndex(),
-                .queueCount = 1,
-                .pQueuePriorities = &priority
+                .queueFamilyIndex = static_cast<uint32_t>(familyInd),
+                .queueCount = static_cast<uint32_t>(priorities[familyInd].size()),
+                .pQueuePriorities = priorities[familyInd].data()
         };
-
         graphicsQueueInfos.push_back(info);
     }
-
 
     VkPhysicalDeviceFeatures deviceFeatures{};
 
@@ -198,12 +211,15 @@ void Device::Initialize() {
         throw std::runtime_error("[Device] Could not create logical device: " + std::to_string(result));
     }
 
-    for (const auto& queue : m_queues) {
+    for (const auto& queueFamily: m_queueFamilies) {
 
-        VkQueue vkQueue;
-        vkGetDeviceQueue(m_logicalDevice, queue->GetFamilyIndex(), queue->GetQueueIndex(), &vkQueue);
+        for (const auto& queue : queueFamily) {
 
-        queue->Initialize(vkQueue);
+            VkQueue vkQueue;
+            vkGetDeviceQueue(m_logicalDevice, queue->GetFamilyIndex(), queue->GetQueueIndex(), &vkQueue);
+
+            queue->Initialize(vkQueue);
+        }
     }
 }
 

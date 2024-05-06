@@ -6,27 +6,8 @@ GenericBuffer::GenericBuffer(const Device* device, const GenericBuffer::Desc& de
 
     m_device = device;
 
-    VkResult result = vkCreateBuffer(m_device->GetVkDevice(), &desc.bufferCreateInfo, nullptr, &m_buffer);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[MainRenderPipeline] Could not create a vertex buffer");
-    }
-
-    VkMemoryRequirements memoryRequirements;
-    vkGetBufferMemoryRequirements(m_device->GetVkDevice(), m_buffer, &memoryRequirements);
-
-    const VkMemoryAllocateInfo memoryAllocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = memoryRequirements.size,
-        // TODO: Learn more about this
-        .memoryTypeIndex = this->FindMemoryType(memoryRequirements.memoryTypeBits, desc.memoryProperty)
-    };
-
-    result = vkAllocateMemory(m_device->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_bufferMemory);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[GenericBuffer] Could not allocate memory for the vertex buffer");
-    }
-
-    vkBindBufferMemory(m_device->GetVkDevice(), m_buffer, m_bufferMemory, 0);
+    this->CreateBuffer(desc.bufferCreateInfo);
+    this->AllocateBuffer(desc.memoryProperty);
 }
 
 void GenericBuffer::Destroy() {
@@ -63,6 +44,43 @@ VkBuffer GenericBuffer::GetVkBuffer() const {
 
 VkDeviceMemory GenericBuffer::GetVkDeviceMemory() const {
     return m_bufferMemory;
+}
+
+GenericBuffer::GenericBuffer(const Device* device) {
+
+	m_device = device;
+
+    m_buffer = VK_NULL_HANDLE;
+    m_bufferMemory = VK_NULL_HANDLE;
+}
+
+void GenericBuffer::CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo) {
+
+	const VkResult result = vkCreateBuffer(m_device->GetVkDevice(), &bufferCreateInfo, nullptr, &m_buffer);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[GenericBuffer] Could not create buffer");
+    }
+}
+
+void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryProperty) {
+
+    VkMemoryRequirements memoryRequirements;
+    vkGetBufferMemoryRequirements(m_device->GetVkDevice(), m_buffer, &memoryRequirements);
+
+    const VkMemoryAllocateInfo memoryAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = memoryRequirements.size,
+        // TODO: Learn more about this
+        .memoryTypeIndex = this->FindMemoryType(memoryRequirements.memoryTypeBits, memoryProperty)
+    };
+
+    // TODO: Learn about VMA
+    const VkResult result = vkAllocateMemory(m_device->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_bufferMemory);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[GenericBuffer] Could not allocate memory for the vertex buffer");
+    }
+
+    vkBindBufferMemory(m_device->GetVkDevice(), m_buffer, m_bufferMemory, 0);
 }
 
 uint32_t GenericBuffer::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {

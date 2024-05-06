@@ -23,7 +23,12 @@ public:
 	[[nodiscard]] VkDeviceMemory GetVkDeviceMemory() const;
 
 
-private:
+protected:
+
+	GenericBuffer(const Device* device);
+
+	void CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo);
+	void AllocateBuffer(VkMemoryPropertyFlags memoryProperty);
 
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 

@@ -1,6 +1,7 @@
 #include "MainRenderPipeline.hpp"
 
 #include "../pch.hpp"
+#include "../helpers/buffers/StagingBuffer.hpp"
 
 struct Vertex
 {
@@ -282,20 +283,30 @@ void MainRenderPipeline::CreateCommandPools() {
         throw std::runtime_error("[App] Could not create a graphics command pool: " + std::to_string(result));
     }
 
+    if (!m_transferQueue.has_value()) {
+        return;
+    }
+
     const VkCommandPoolCreateInfo transferPoolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-        .queueFamilyIndex = m_transferQueue->GetFamilyIndex()
+        .queueFamilyIndex = m_transferQueue.value()->GetFamilyIndex()
     };
 
-    result = vkCreateCommandPool(m_device->GetVkDevice(), &transferPoolCreateInfo, nullptr, &m_transferCommandPool);
+    VkCommandPool transferCommandPool;
+    result = vkCreateCommandPool(m_device->GetVkDevice(), &transferPoolCreateInfo, nullptr, &transferCommandPool);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[App] Could not create a transfer command pool: " + std::to_string(result));
     }
+
+    m_transferCommandPool = transferCommandPool;
 }
 
 void MainRenderPipeline::DestroyCommandPools() {
-    vkDestroyCommandPool(m_device->GetVkDevice(), m_transferCommandPool, nullptr);
+
+    if (m_transferCommandPool.has_value()) {
+        vkDestroyCommandPool(m_device->GetVkDevice(), m_transferCommandPool.value(), nullptr);
+    }
     vkDestroyCommandPool(m_device->GetVkDevice(), m_graphicsCommandPool, nullptr);
 
     m_transferCommandPool = VK_NULL_HANDLE;
@@ -319,7 +330,7 @@ void MainRenderPipeline::CreateCommandBuffers() {
 
     const VkCommandBufferAllocateInfo transferBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = m_transferCommandPool,
+        .commandPool = m_transferCommandPool.has_value() ? m_transferCommandPool.value() : m_graphicsCommandPool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1
     };
@@ -330,7 +341,11 @@ void MainRenderPipeline::CreateCommandBuffers() {
 }
 
 void MainRenderPipeline::DestroyCommandBuffers() {
-    vkFreeCommandBuffers(m_device->GetVkDevice(), m_transferCommandPool, 1, &m_transferCommandBuffer);
+
+    vkFreeCommandBuffers(m_device->GetVkDevice(), 
+        m_transferCommandPool.has_value() ? m_transferCommandPool.value() : m_graphicsCommandPool, 
+        1, &m_transferCommandBuffer);
+
     vkFreeCommandBuffers(m_device->GetVkDevice(), m_graphicsCommandPool,
         static_cast<uint32_t>(m_graphicsCommandBuffers.size()), m_graphicsCommandBuffers.data());
 
@@ -346,25 +361,15 @@ void MainRenderPipeline::CreateVertexBuffer() {
 	    {{ 0.0f,  -0.5f, 0.0f}, -1},
     };
 
-    uint32_t queueFamilyIndices[]{
-        m_graphicsQueue->GetFamilyIndex(),
-        m_transferQueue->GetFamilyIndex()
-    };
+    const uint32_t bufferSize = sizeof(Vertex) * static_cast<uint32_t>(vertices.size());
 
-    GenericBuffer::Desc stagingDesc = {
-        .bufferCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-	        .size = sizeof(Vertex) * vertices.size(),
-	        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-	        .sharingMode = VK_SHARING_MODE_CONCURRENT,
-            .queueFamilyIndexCount = 2,
-            .pQueueFamilyIndices = queueFamilyIndices
-        },
-        .memoryProperty = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    StagingBuffer::Desc stagingBufferDesc = {
+        .graphicsQueue = m_graphicsQueue,
+        .transferQueue = m_transferQueue,
+        .bufferSize = bufferSize
     };
-
-    const auto stagingBuffer = std::make_unique<GenericBuffer>(m_device, stagingDesc);
-    stagingBuffer->CopyData(vertices.data(), stagingDesc.bufferCreateInfo.size);
+    const auto stagingBuffer = std::make_unique<StagingBuffer>(m_device, stagingBufferDesc);
+    stagingBuffer->CopyData(vertices.data(), bufferSize);
 
     GenericBuffer::Desc desc = {
         .bufferCreateInfo = {
@@ -380,7 +385,7 @@ void MainRenderPipeline::CreateVertexBuffer() {
     m_vertexBuffer->CopyFromBuffer(m_transferCommandBuffer, stagingBuffer.get(), {
         .srcOffset = 0,
         .dstOffset = 0,
-        .size = stagingDesc.bufferCreateInfo.size
+        .size = bufferSize
     });
 
     const VkSubmitInfo submitInfo = {
@@ -389,8 +394,9 @@ void MainRenderPipeline::CreateVertexBuffer() {
         .pCommandBuffers = &m_transferCommandBuffer
     };
 
-    vkQueueSubmit(m_transferQueue->GetVkQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(m_transferQueue->GetVkQueue());
+    const VkQueue copyQueue = m_transferQueue.has_value() ? m_transferQueue.value()->GetVkQueue() : m_graphicsQueue->GetVkQueue();
+    vkQueueSubmit(copyQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(copyQueue);
 
     stagingBuffer->Destroy();
 }

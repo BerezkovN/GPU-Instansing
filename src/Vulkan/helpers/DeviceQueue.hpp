@@ -1,7 +1,9 @@
 #pragma once
 
-#include <cstdint>
 #include <volk.h>
+
+#include <cstdint>
+#include <string>
 
 class DeviceQueue {
 
@@ -11,6 +13,8 @@ public:
         Transfer,
         // TODO: Compute, etc.
     };
+
+    static std::string QueueTypeToString(DeviceQueue::Type type);
 
     DeviceQueue(uint32_t familyIndex, uint32_t queueIndex, float priority);
 

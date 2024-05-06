@@ -29,8 +29,21 @@ App::App() {
         throw std::runtime_error("[App] Main device doesn't support rendering");
     }
 
-    m_graphicsQueue = m_mainDevice->AddQueue(DeviceQueue::Type::Graphics, 1.0f, m_surface.get());
+    const auto graphicsQueue = m_mainDevice->AddQueue(DeviceQueue::Type::Graphics, 1.0f, m_surface.get());
+    if (!graphicsQueue.has_value()) {
+        throw std::runtime_error("[App] Could not create graphics queue");
+    }
+    m_graphicsQueue = graphicsQueue.value();
+    spdlog::info("[App] Graphics queue: {} family, {} queue", m_graphicsQueue->GetFamilyIndex(), m_graphicsQueue->GetQueueIndex());
+
     m_transferQueue = m_mainDevice->AddQueue(DeviceQueue::Type::Transfer, 1.0f);
+    if (!m_transferQueue.has_value()) {
+        spdlog::warn("[App] Could not create transfer queue");
+    }
+    else {
+        spdlog::info("[App] Transfer queue: {} family, {} queue", m_graphicsQueue->GetFamilyIndex(), m_graphicsQueue->GetQueueIndex());
+    }
+
     m_mainDevice->Initialize();
 
     m_swapchain = std::make_unique<Swapchain>(this, m_surface.get(), m_mainDevice.get());
@@ -39,15 +52,20 @@ App::App() {
 
 
     m_shaderManager = std::make_unique<ShaderManager>(m_mainDevice.get());
-    VkShaderModule fragModule = m_shaderManager->LoadShader("shaders/triangle.frag.spv");
-    VkShaderModule vertModule = m_shaderManager->LoadShader("shaders/triangle.vert.spv");
+    const VkShaderModule fragModule = m_shaderManager->LoadShader("shaders/triangle.frag.spv");
+    const VkShaderModule vertModule = m_shaderManager->LoadShader("shaders/triangle.vert.spv");
+
+    std::optional<const DeviceQueue*> transferQueue = std::nullopt;
+    if (m_transferQueue.has_value()) {
+        transferQueue = m_transferQueue.value().get();
+    }
 
     MainRenderPipeline::CreateDesc pipelineDesc = {
         .framesInFlight = m_config->framesInFlight,
         .device = m_mainDevice.get(),
         .renderPass = m_renderPass.get(),
         .graphicsQueue = m_graphicsQueue.get(),
-        .transferQueue = m_transferQueue.get(),
+        .transferQueue = transferQueue,
         .fragmentShader = fragModule,
         .vertexShader = vertModule
     };
