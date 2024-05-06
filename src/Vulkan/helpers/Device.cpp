@@ -4,6 +4,8 @@
 #include "../App.hpp"
 #include "VkHelper.hpp"
 
+#include <optional>
+
 DeviceID Device::CalculateID(const VkPhysicalDeviceProperties& deviceProperties) {
 
     DeviceID result = 17;
@@ -100,9 +102,13 @@ std::unique_ptr<Device> Device::FindDevice(const App* app, DeviceID deviceID) {
 void Device::Destroy() {
     vkDestroyDevice(m_logicalDevice, nullptr);
     m_logicalDevice = VK_NULL_HANDLE;
+
+    m_queueFamilyProperties.clear();
+    m_queueFamilyCounters.clear();
+    m_queues.clear();
 }
 
-void Device::WaitIdle() {
+void Device::WaitIdle() const {
     vkDeviceWaitIdle(m_logicalDevice);
 }
 
@@ -134,33 +140,22 @@ bool Device::DoesSupportExtension(const std::string& extensionName) {
 
 std::shared_ptr<DeviceQueue> Device::AddQueue(const DeviceQueue::Type queueType, float priority, const Surface* surface) {
 
-    std::shared_ptr<DeviceQueue> result;
+    uint32_t familyIndex{};
 
-    if (queueType == DeviceQueue::Type::Graphics) {
-        uint32_t familyIndex{};
-
-        for (const auto& queueFamily : m_queueFamilyProperties) {
-
-            if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-
-                VkBool32 isSurfaceSupported;
-                vkGetPhysicalDeviceSurfaceSupportKHR(m_physicalDevice, familyIndex, surface->GetVkSurface(), &isSurfaceSupported);
-
-                if (!isSurfaceSupported) {
-                    continue;
-                }
-
-                result = std::make_shared<DeviceQueue>(familyIndex, m_queueFamilyCounters[familyIndex], priority);
-                m_queues.push_back(result);
-                m_queueFamilyCounters[familyIndex] += 1;
-            }
-
-            familyIndex++;
-        }
-    }
-    else {
+    switch (queueType) {
+    case DeviceQueue::Type::Graphics:
+        familyIndex = this->FindGraphicsQueueFamilyIndex(surface);
+        break;
+    case DeviceQueue::Type::Transfer:
+        familyIndex = this->FindTransferQueueFamilyIndex();
+        break;
+    default:
         throw std::runtime_error("[Device] Unsupported queue type");
     }
+
+    const auto result = std::make_shared<DeviceQueue>(familyIndex, m_queueFamilyCounters[familyIndex], priority);
+    m_queues.push_back(result);
+    m_queueFamilyCounters[familyIndex] += 1;
 
     return result;
 }
@@ -236,5 +231,43 @@ VkPhysicalDevice Device::GetVkPhysicalDevice() const {
 
 VkDevice Device::GetVkDevice() const {
     return m_logicalDevice;
+}
+
+uint32_t Device::FindGraphicsQueueFamilyIndex(const Surface* surface) const {
+	uint32_t index{};
+    const auto& graphicsQueueIt = std::ranges::find_if(m_queueFamilyProperties, [&](const VkQueueFamilyProperties& queueFamily)
+    {
+        if (!(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+            return false;
+        }
+
+        VkBool32 isSurfaceSupported;
+        vkGetPhysicalDeviceSurfaceSupportKHR(m_physicalDevice, index, surface->GetVkSurface(), &isSurfaceSupported);
+
+        index++;
+        return static_cast<bool>(isSurfaceSupported);
+    });
+
+    return static_cast<uint32_t>(std::distance(m_queueFamilyProperties.begin(), graphicsQueueIt));
+}
+
+uint32_t Device::FindTransferQueueFamilyIndex() const {
+
+    // Ideally, we would want graphics and transfer queue to be on different queue families.
+    const auto& idealTransferQueueIt = std::ranges::find_if(m_queueFamilyProperties, [=](const VkQueueFamilyProperties& queueFamily)
+    {
+        return (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) && !(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT);
+    });
+
+    if (idealTransferQueueIt != m_queueFamilyProperties.end()) {
+        return static_cast<uint32_t>(std::distance(m_queueFamilyProperties.begin(), idealTransferQueueIt));
+    }
+
+    const auto& transferQueueIt = std::ranges::find_if(m_queueFamilyProperties, [=](const VkQueueFamilyProperties& queueFamily)
+    {
+        return queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT;
+    });
+
+    return static_cast<uint32_t>(std::distance(m_queueFamilyProperties.begin(), transferQueueIt));
 }
 

@@ -8,6 +8,7 @@ class DeviceQueue {
 public:
     enum Type {
         Graphics,
+        Transfer,
         // TODO: Compute, etc.
     };
 

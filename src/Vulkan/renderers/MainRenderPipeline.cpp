@@ -8,15 +8,19 @@ struct Vertex
     int color;
 };
 
-MainRenderPipeline::MainRenderPipeline(const Device* device, const IRenderPass* renderPass, VkShaderModule fragModule, VkShaderModule vertModule) {
+MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& desc) {
 
-    m_device = device;
+    m_framesInFlight = desc.framesInFlight;
+    m_device = desc.device;
+    m_renderPass = desc.renderPass;
+    m_graphicsQueue = desc.graphicsQueue;
+    m_transferQueue = desc.transferQueue;
 
     // TODO: Use pUseSpecializationInfo for GPU Instancing variants.
     const VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .module = vertModule,
+        .module = desc.vertexShader,
         .pName = "main",
         .pSpecializationInfo = nullptr
     };
@@ -24,7 +28,7 @@ MainRenderPipeline::MainRenderPipeline(const Device* device, const IRenderPass* 
     const VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .module = fragModule,
+        .module = desc.fragmentShader,
         .pName = "main",
         .pSpecializationInfo = nullptr
     };
@@ -43,7 +47,6 @@ MainRenderPipeline::MainRenderPipeline(const Device* device, const IRenderPass* 
     };
 
     VkVertexInputBindingDescription bindingDescription = {
-        // What the hell is this?
         .binding = 0,
         .stride = sizeof(Vertex),
         // TODO: Instancing
@@ -56,22 +59,21 @@ MainRenderPipeline::MainRenderPipeline(const Device* device, const IRenderPass* 
         .binding = 0,
         .format = VK_FORMAT_R32G32B32A32_SFLOAT,
         .offset = 0
-    });
+        });
 
     attributeDescriptions.push_back({
         .location = 1,
         .binding = 0,
         .format = VK_FORMAT_R8G8B8A8_UNORM,
         .offset = offsetof(Vertex, color)
-    });
-
+        });
 
     VkPipelineVertexInputStateCreateInfo vertexInputStateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &bindingDescription,
-        .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
-        .pVertexAttributeDescriptions = attributeDescriptions.data()
+	    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+	    .vertexBindingDescriptionCount = 1,
+	    .pVertexBindingDescriptions = &bindingDescription,
+	    .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
+	    .pVertexAttributeDescriptions = attributeDescriptions.data()
     };
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = {
@@ -93,7 +95,7 @@ MainRenderPipeline::MainRenderPipeline(const Device* device, const IRenderPass* 
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VK_POLYGON_MODE_FILL,
         .cullMode = VK_CULL_MODE_BACK_BIT,
-        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .lineWidth = 1.0f
     };
 
@@ -148,99 +150,253 @@ MainRenderPipeline::MainRenderPipeline(const Device* device, const IRenderPass* 
         .pColorBlendState = &blendStateCreateInfo,
         .pDynamicState = &dynamicStateCreateInfo,
         .layout = m_pipelineLayout,
-        .renderPass = renderPass->GetVkRenderPass(),
+        .renderPass = desc.renderPass->GetVkRenderPass(),
         .subpass = 0,
         // TODO: Learn more about this
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = -1
     };
 
-    result = vkCreateGraphicsPipelines(device->GetVkDevice(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &m_pipeline);
+    result = vkCreateGraphicsPipelines(m_device->GetVkDevice(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &m_pipeline);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[MainRenderPipeline] Could not create graphics pipeline: " + std::to_string(result));
     }
 
     spdlog::info("[MainRenderPipeline] Graphics pipeline was created successfully!");
 
+    this->CreateCommandPools();
+    this->CreateCommandBuffers();
     this->CreateVertexBuffer();
 }
 
 void MainRenderPipeline::Destroy() {
 
-    vkDestroyBuffer(m_device->GetVkDevice(), m_vertexBuffer, nullptr);
-    vkFreeMemory(m_device->GetVkDevice(), m_vertexBufferMemory, nullptr);
+    this->DestroyVertexBuffer();
+    this->DestroyCommandBuffers();
+    this->DestroyCommandPools();
 
 	vkDestroyPipeline(m_device->GetVkDevice(), m_pipeline, nullptr);
 	vkDestroyPipelineLayout(m_device->GetVkDevice(), m_pipelineLayout, nullptr);
-
-    vkDestroyBuffer(m_device->GetVkDevice(), m_vertexBuffer, nullptr);
 }
 
-void MainRenderPipeline::BeforeRender(VkCommandBuffer commandBuffer) {
+void MainRenderPipeline::RecordAndSubmit(const MainRenderPipeline::RecordDesc& desc) const {
+
+    VkCommandBuffer commandBuffer = m_graphicsCommandBuffers[desc.frameIndex];
+
+    constexpr VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        // TODO: Learn about this
+        .flags = 0,
+        .pInheritanceInfo = nullptr
+    };
+
+    VkResult result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[App] Could not begin command buffer: " + std::to_string(result));
+    }
+
+    VkClearValue clearValue = {
+        .color = {.float32 = { 0.0f, 0.0f, 0.0f, 1.0f } }
+    };
+
+
+    const VkRenderPassBeginInfo renderPassBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = m_renderPass->GetVkRenderPass(),
+        .framebuffer = desc.framebuffer,
+        .renderArea = desc.renderArea,
+        .clearValueCount = 1,
+        .pClearValues = &clearValue
+    };
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    const VkViewport viewport = {
+        .x = 0, .y = 0,
+        .width = static_cast<float>(desc.renderArea.extent.width),
+        .height = static_cast<float>(desc.renderArea.extent.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    const VkRect2D scissor = {
+        .offset = {0, 0},
+        .extent = desc.renderArea.extent
+    };
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
-    VkBuffer vertexBuffers[] = { m_vertexBuffer };
-    VkDeviceSize offsets[] = { 0 };
+    const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer() };
+    constexpr VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+    vkCmdEndRenderPass(commandBuffer);
+
+    result = vkEndCommandBuffer(commandBuffer);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[App] Could not end command buffer: " + std::to_string(result));
+    }
+
+    VkSemaphore waitSemaphores[] = { desc.imageAvailableSemaphore };
+    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
+    VkSemaphore signalSemaphore[] = { desc.renderFinishedSemaphore };
+
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = waitSemaphores,
+        .pWaitDstStageMask = waitStages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = signalSemaphore
+    };
+
+
+    result = vkQueueSubmit(m_graphicsQueue->GetVkQueue(), 1, &submitInfo, desc.submitFrameFence);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[MainRenderPipeline] Error submitting a graphics queue: " + std::to_string(result));
+    }
+
 }
+
 
 VkPipeline MainRenderPipeline::GetVkPipeline() const {
 	return m_pipeline;
 }
 
+void MainRenderPipeline::CreateCommandPools() {
+    const VkCommandPoolCreateInfo graphicsPoolCreateInfo = {
+	    .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+	    .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+	    .queueFamilyIndex = m_graphicsQueue->GetFamilyIndex()
+    };
+
+    VkResult result = vkCreateCommandPool(m_device->GetVkDevice(), &graphicsPoolCreateInfo, nullptr, &m_graphicsCommandPool);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[App] Could not create a graphics command pool: " + std::to_string(result));
+    }
+
+    const VkCommandPoolCreateInfo transferPoolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = m_transferQueue->GetFamilyIndex()
+    };
+
+    result = vkCreateCommandPool(m_device->GetVkDevice(), &transferPoolCreateInfo, nullptr, &m_transferCommandPool);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[App] Could not create a transfer command pool: " + std::to_string(result));
+    }
+}
+
+void MainRenderPipeline::DestroyCommandPools() {
+    vkDestroyCommandPool(m_device->GetVkDevice(), m_transferCommandPool, nullptr);
+    vkDestroyCommandPool(m_device->GetVkDevice(), m_graphicsCommandPool, nullptr);
+
+    m_transferCommandPool = VK_NULL_HANDLE;
+    m_graphicsCommandPool = VK_NULL_HANDLE;
+}
+
+void MainRenderPipeline::CreateCommandBuffers() {
+    m_graphicsCommandBuffers.resize(m_framesInFlight);
+
+    const VkCommandBufferAllocateInfo graphicsBuffersInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = m_graphicsCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = m_framesInFlight
+    };
+
+    VkResult result = vkAllocateCommandBuffers(m_device->GetVkDevice(), &graphicsBuffersInfo, m_graphicsCommandBuffers.data());
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[App] Could not allocate graphics command buffers: " + std::to_string(result));
+    }
+
+    const VkCommandBufferAllocateInfo transferBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = m_transferCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+    result = vkAllocateCommandBuffers(m_device->GetVkDevice(), &transferBufferInfo, &m_transferCommandBuffer);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[App] Could not allocate transfer command buffer: " + std::to_string(result));
+    }
+}
+
+void MainRenderPipeline::DestroyCommandBuffers() {
+    vkFreeCommandBuffers(m_device->GetVkDevice(), m_transferCommandPool, 1, &m_transferCommandBuffer);
+    vkFreeCommandBuffers(m_device->GetVkDevice(), m_graphicsCommandPool,
+        static_cast<uint32_t>(m_graphicsCommandBuffers.size()), m_graphicsCommandBuffers.data());
+
+    m_graphicsCommandBuffers.clear();
+    m_transferCommandBuffer = VK_NULL_HANDLE;
+
+}
+
 void MainRenderPipeline::CreateVertexBuffer() {
-
     const std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f, 0.0f}, -1},
-        {{ 0.5f, -0.5f, 0.0f}, 0xFF03102},
-        {{ 0.0f,  0.5f, 0.0f}, -1},
+	    {{-0.5f, 0.5f, 0.0f}, -1},
+	    {{ 0.5f, 0.5f, 0.0f}, 0xFF03102},
+	    {{ 0.0f,  -0.5f, 0.0f}, -1},
     };
 
-    const VkBufferCreateInfo bufferInfo = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = sizeof(Vertex) * vertices.size(),
-        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    uint32_t queueFamilyIndices[]{
+        m_graphicsQueue->GetFamilyIndex(),
+        m_transferQueue->GetFamilyIndex()
     };
 
-    VkResult result = vkCreateBuffer(m_device->GetVkDevice(), &bufferInfo, nullptr, &m_vertexBuffer);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[MainRenderPipeline] Could not create a vertex buffer");
-    }
-
-    VkMemoryRequirements memoryRequirements;
-    vkGetBufferMemoryRequirements(m_device->GetVkDevice(), m_vertexBuffer, &memoryRequirements);
-
-    VkMemoryAllocateInfo memoryAllocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = memoryRequirements.size,
-        // TODO: Learn more about this
-        .memoryTypeIndex = this->FindMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+    GenericBuffer::Desc stagingDesc = {
+        .bufferCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+	        .size = sizeof(Vertex) * vertices.size(),
+	        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	        .sharingMode = VK_SHARING_MODE_CONCURRENT,
+            .queueFamilyIndexCount = 2,
+            .pQueueFamilyIndices = queueFamilyIndices
+        },
+        .memoryProperty = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
     };
 
-    result = vkAllocateMemory(m_device->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_vertexBufferMemory);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[MainRenderPipeline] Could not allocate memory for the vertex buffer");
-    }
+    const auto stagingBuffer = std::make_unique<GenericBuffer>(m_device, stagingDesc);
+    stagingBuffer->CopyData(vertices.data(), stagingDesc.bufferCreateInfo.size);
 
-    vkBindBufferMemory(m_device->GetVkDevice(), m_vertexBuffer, m_vertexBufferMemory, 0);
+    GenericBuffer::Desc desc = {
+        .bufferCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+	        .size = sizeof(Vertex) * vertices.size(),
+	        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+        },
+        .memoryProperty = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    };
 
-    void* data;
-    vkMapMemory(m_device->GetVkDevice(), m_vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-    std::memcpy(data, vertices.data(), bufferInfo.size);
-    vkUnmapMemory(m_device->GetVkDevice(), m_vertexBufferMemory);
+    m_vertexBuffer = std::make_unique<GenericBuffer>(m_device, desc);
+    m_vertexBuffer->CopyFromBuffer(m_transferCommandBuffer, stagingBuffer.get(), {
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = stagingDesc.bufferCreateInfo.size
+    });
 
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &m_transferCommandBuffer
+    };
+
+    vkQueueSubmit(m_transferQueue->GetVkQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(m_transferQueue->GetVkQueue());
+
+    stagingBuffer->Destroy();
 }
 
-uint32_t MainRenderPipeline::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-    VkPhysicalDeviceMemoryProperties memoryProperties;
-    vkGetPhysicalDeviceMemoryProperties(m_device->GetVkPhysicalDevice(), &memoryProperties);
-
-    for (uint32_t ind = 0; ind < memoryProperties.memoryTypeCount; ind++) {
-	    if (typeFilter & (1 << ind) && (memoryProperties.memoryTypes[ind].propertyFlags & properties)) {
-            return ind;
-	    }
-    }
-
-    throw std::runtime_error("[MainRenderPipeline] Could not find correct memory type");
+void MainRenderPipeline::DestroyVertexBuffer() {
+    m_vertexBuffer->Destroy();
+    m_vertexBuffer = nullptr;
 }
+

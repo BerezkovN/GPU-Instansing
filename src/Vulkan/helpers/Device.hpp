@@ -34,7 +34,7 @@ public:
 
     void Destroy();
 
-    void WaitIdle();
+    void WaitIdle() const;
     bool DoesSupportRendering(const Surface* surface);
     bool DoesSupportExtension(const std::string& extensionName);
 
@@ -51,6 +51,9 @@ public:
     [[nodiscard]] VkDevice GetVkDevice() const;
 
 private:
+
+    uint32_t FindGraphicsQueueFamilyIndex(const Surface* surface) const;
+	uint32_t FindTransferQueueFamilyIndex() const;
 
     const App* m_app;
 

@@ -30,6 +30,7 @@ App::App() {
     }
 
     m_graphicsQueue = m_mainDevice->AddQueue(DeviceQueue::Type::Graphics, 1.0f, m_surface.get());
+    m_transferQueue = m_mainDevice->AddQueue(DeviceQueue::Type::Transfer, 1.0f);
     m_mainDevice->Initialize();
 
     m_swapchain = std::make_unique<Swapchain>(this, m_surface.get(), m_mainDevice.get());
@@ -41,11 +42,18 @@ App::App() {
     VkShaderModule fragModule = m_shaderManager->LoadShader("shaders/triangle.frag.spv");
     VkShaderModule vertModule = m_shaderManager->LoadShader("shaders/triangle.vert.spv");
 
-    m_renderPipeline = std::make_unique<MainRenderPipeline>(m_mainDevice.get(), m_renderPass.get(), fragModule, vertModule);
+    MainRenderPipeline::CreateDesc pipelineDesc = {
+        .framesInFlight = m_config->framesInFlight,
+        .device = m_mainDevice.get(),
+        .renderPass = m_renderPass.get(),
+        .graphicsQueue = m_graphicsQueue.get(),
+        .transferQueue = m_transferQueue.get(),
+        .fragmentShader = fragModule,
+        .vertexShader = vertModule
+    };
+    m_renderPipeline = std::make_unique<MainRenderPipeline>(pipelineDesc);
 
     this->CreateFramebuffers();
-    this->CreateCommandPool();
-    this->CreateCommandBuffers();
     this->CreateSyncObjects();
 }
 
@@ -64,14 +72,7 @@ void App::Run() {
 
 void App::Destroy() {
 
-    for (size_t ind = 0; ind < m_config->framesInFlight; ind++) {
-
-        vkDestroySemaphore(m_mainDevice->GetVkDevice(), m_imageAvailableSemaphores[ind], nullptr);
-        vkDestroySemaphore(m_mainDevice->GetVkDevice(), m_renderFinishedSemaphores[ind], nullptr);
-        vkDestroyFence(m_mainDevice->GetVkDevice(), m_inFlightFences[ind], nullptr);
-    }
-
-    vkDestroyCommandPool(m_mainDevice->GetVkDevice(), m_graphicsCommandPool, nullptr);
+    this->DestroySyncObjects();
 
     m_renderPipeline->Destroy();
     m_renderPass->Destroy();
@@ -111,6 +112,8 @@ void App::DestroyWindow() {
 
     glfwDestroyWindow(m_window);
     glfwTerminate();
+
+    m_window = nullptr;
 }
 
 void App::InitializeVulkan() {
@@ -157,6 +160,8 @@ void App::InitializeVulkan() {
 void App::DestroyVulkan() {
     vkDestroyInstance(m_instance, nullptr);
     volkFinalize();
+
+    m_instance = VK_NULL_HANDLE;
 }
 
 
@@ -213,7 +218,7 @@ void App::ChooseMainDevice() {
 
 void App::Update() {
 
-    vkWaitForFences(m_mainDevice->GetVkDevice(), 1, &m_inFlightFences[m_currentFrameInFlight], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFences[m_currentFrameInFlight], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
     if (m_mustResize) {
@@ -236,38 +241,28 @@ void App::Update() {
         std::cout << "[App] The current swap chain is suboptimal\n";
     }
 
-    vkResetFences(m_mainDevice->GetVkDevice(), 1, &m_inFlightFences[m_currentFrameInFlight]);
+    vkResetFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFences[m_currentFrameInFlight]);
 
-    vkResetCommandBuffer(m_graphicsCommandBuffers[m_currentFrameInFlight], 0);
-    this->RecordCommandBuffer(m_graphicsCommandBuffers[m_currentFrameInFlight], imageIndex);
 
-    VkSemaphore waitSemaphores[] = {m_imageAvailableSemaphores[m_currentFrameInFlight] };
-    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-
-    VkSemaphore signalSemaphore[] = {m_renderFinishedSemaphores[m_currentFrameInFlight]};
-
-    const VkSubmitInfo submitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = waitSemaphores,
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &m_graphicsCommandBuffers[m_currentFrameInFlight],
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = signalSemaphore
+    VkExtent2D swapchainExtent = m_swapchain->GetExtent();
+    MainRenderPipeline::RecordDesc recordDesc = {
+        .frameIndex = m_currentFrameInFlight,
+        .renderArea = {
+            .offset = {0, 0},
+            .extent = swapchainExtent
+        },
+        .framebuffer = m_framebuffers[m_currentFrameInFlight],
+        .imageAvailableSemaphore = m_imageAvailableSemaphores[m_currentFrameInFlight],
+        .renderFinishedSemaphore = m_renderFinishedSemaphores[m_currentFrameInFlight],
+        .submitFrameFence = m_submitFrameFences[m_currentFrameInFlight]
     };
-
-
-    result = vkQueueSubmit(m_graphicsQueue->GetVkQueue(), 1, &submitInfo, m_inFlightFences[m_currentFrameInFlight]);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[App] Error submitting a graphics queue: " + std::to_string(result));
-    }
+    m_renderPipeline->RecordAndSubmit(recordDesc);
 
     VkSwapchainKHR swapchain = m_swapchain->GetVkSwapchain();
     const VkPresentInfoKHR presentInfo = {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signalSemaphore,
+        .pWaitSemaphores = &m_renderFinishedSemaphores[m_currentFrameInFlight],
         .swapchainCount = 1,
         .pSwapchains = &swapchain,
         .pImageIndices = &imageIndex
@@ -275,72 +270,10 @@ void App::Update() {
 
     result = vkQueuePresentKHR(m_graphicsQueue->GetVkQueue(), &presentInfo);
     if (result != VK_SUCCESS) {
-        //throw std::runtime_error("[App] Error presenting graphics queue: " + std::to_string(result));
+        throw std::runtime_error("[App] Error presenting graphics queue: " + std::to_string(result));
     }
 
     m_currentFrameInFlight = (m_currentFrameInFlight + 1) % m_config->framesInFlight;
-}
-
-void App::RecordCommandBuffer(VkCommandBuffer commandBuffer, const uint32_t imageIndex) {
-
-	constexpr VkCommandBufferBeginInfo beginInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        // TODO: Learn about this
-        .flags = 0,
-        .pInheritanceInfo = nullptr
-    };
-
-    VkResult result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[App] Could not begin command buffer: " + std::to_string(result));
-    }
-
-    VkClearValue clearValue = {
-        .color = { .float32 = { 0.0f, 0.0f, 0.0f, 1.0f } }
-    };
-
-    VkExtent2D swapchainExtent = m_swapchain->GetExtent();
-
-    const VkRenderPassBeginInfo renderPassBeginInfo = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .renderPass = m_renderPass->GetVkRenderPass(),
-        .framebuffer = m_framebuffers[imageIndex],
-        .renderArea = {
-            .offset = {0, 0},
-            .extent = swapchainExtent
-        },
-        .clearValueCount = 1,
-        .pClearValues = &clearValue
-    };
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    const VkViewport viewport = {
-	    .x = 0, .y = 0,
-	    .width = static_cast<float>(swapchainExtent.width),
-	    .height = static_cast<float>(swapchainExtent.height),
-	    .minDepth = 0.0f,
-	    .maxDepth = 1.0f
-    };
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    const VkRect2D scissor = {
-        .offset = {0, 0},
-        .extent =swapchainExtent
-    };
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    m_renderPipeline->BeforeRender(commandBuffer);
-
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-    vkCmdEndRenderPass(commandBuffer);
-
-    result = vkEndCommandBuffer(commandBuffer);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[App] Could not end command buffer: " + std::to_string(result));
-    }
-
 }
 
 
@@ -394,37 +327,8 @@ void App::DestroyFramebuffers() {
     for (const auto& framebuffer : m_framebuffers) {
         vkDestroyFramebuffer(m_mainDevice->GetVkDevice(), framebuffer, nullptr);
     }
-}
 
-void App::CreateCommandPool() {
-
-    const VkCommandPoolCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-        .queueFamilyIndex = m_graphicsQueue->GetFamilyIndex()
-    };
-
-    const VkResult result = vkCreateCommandPool(m_mainDevice->GetVkDevice(), &createInfo, nullptr, &m_graphicsCommandPool);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[App] Could not create a graphics command pool: " + std::to_string(result));
-    }
-}
-
-void App::CreateCommandBuffers() {
-
-    m_graphicsCommandBuffers.resize(m_config->framesInFlight);
-
-	const VkCommandBufferAllocateInfo allocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = m_graphicsCommandPool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = m_config->framesInFlight
-    };
-
-    const VkResult result = vkAllocateCommandBuffers(m_mainDevice->GetVkDevice(), &allocateInfo, m_graphicsCommandBuffers.data());
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[App] Could not allocate graphics command buffer: " + std::to_string(result));
-    }
+    m_framebuffers.clear();
 }
 
 void App::CreateSyncObjects() {
@@ -440,18 +344,31 @@ void App::CreateSyncObjects() {
 
     m_imageAvailableSemaphores.resize(m_config->framesInFlight);
     m_renderFinishedSemaphores.resize(m_config->framesInFlight);
-    m_inFlightFences.resize(m_config->framesInFlight);
+    m_submitFrameFences.resize(m_config->framesInFlight);
 
     for (size_t ind = 0; ind < m_config->framesInFlight; ind++) {
 		    
 	    if (vkCreateSemaphore(m_mainDevice->GetVkDevice(), &semaphoreCreateInfo, nullptr, &m_imageAvailableSemaphores[ind]) != VK_SUCCESS ||
             vkCreateSemaphore(m_mainDevice->GetVkDevice(), &semaphoreCreateInfo, nullptr, &m_renderFinishedSemaphores[ind]) != VK_SUCCESS ||
-            vkCreateFence(m_mainDevice->GetVkDevice(), &fenceCreateInfo, nullptr, &m_inFlightFences[ind]) != VK_SUCCESS)
+            vkCreateFence(m_mainDevice->GetVkDevice(), &fenceCreateInfo, nullptr, &m_submitFrameFences[ind]) != VK_SUCCESS)
 	    {
 	        throw std::runtime_error("[App] Could not create sync objects");
 	    }
     }
 
+}
+
+void App::DestroySyncObjects() {
+    for (size_t ind = 0; ind < m_config->framesInFlight; ind++) {
+
+        vkDestroySemaphore(m_mainDevice->GetVkDevice(), m_imageAvailableSemaphores[ind], nullptr);
+        vkDestroySemaphore(m_mainDevice->GetVkDevice(), m_renderFinishedSemaphores[ind], nullptr);
+        vkDestroyFence(m_mainDevice->GetVkDevice(), m_submitFrameFences[ind], nullptr);
+    }
+
+    m_imageAvailableSemaphores.clear();
+    m_renderFinishedSemaphores.clear();
+    m_submitFrameFences.clear();
 }
 
 

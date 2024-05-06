@@ -42,17 +42,14 @@ private:
     void ChooseMainDevice();
 
 	void Update();
-	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-
 
 	void ResizeImmediately();
 
 	void CreateFramebuffers();
 	void DestroyFramebuffers();
 
-	void CreateCommandPool();
-	void CreateCommandBuffers();
 	void CreateSyncObjects();
+	void DestroySyncObjects();
 
     [[nodiscard]] const char* const* GetVulkanInstanceExtensions(uint32_t& extensionCount) const;
     [[nodiscard]] const char* const* GetVulkanValidationLayers(uint32_t& layerCount) const;
@@ -74,16 +71,13 @@ private:
 
 	std::unique_ptr<IRenderPipeline> m_renderPipeline;
 
-	VkCommandPool m_graphicsCommandPool = VK_NULL_HANDLE;
-
 	/* * *
 	 * Per frame-in-flight objects
 	 */
 
-	std::vector<VkCommandBuffer> m_graphicsCommandBuffers{};
 	std::vector<VkSemaphore> m_imageAvailableSemaphores{};
 	std::vector<VkSemaphore> m_renderFinishedSemaphores{};
-	std::vector<VkFence> m_inFlightFences{};
+	std::vector<VkFence> m_submitFrameFences{};
 
 	uint32_t m_currentFrameInFlight{};
 
@@ -91,6 +85,7 @@ private:
 	 * Currently, represents both graphics and presentation queue.
 	 */
 	std::shared_ptr<DeviceQueue> m_graphicsQueue;
+	std::shared_ptr<DeviceQueue> m_transferQueue;
 
 	/* * *
 	 * TODO:
