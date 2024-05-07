@@ -41,7 +41,7 @@ App::App() {
         spdlog::warn("[App] Could not create transfer queue");
     }
     else {
-        spdlog::info("[App] Transfer queue: {} family, {} queue", m_graphicsQueue->GetFamilyIndex(), m_graphicsQueue->GetQueueIndex());
+        spdlog::info("[App] Transfer queue: {} family, {} queue", m_transferQueue.value()->GetFamilyIndex(), m_transferQueue.value()->GetQueueIndex());
     }
 
     m_mainDevice->Initialize();
@@ -269,7 +269,7 @@ void App::Update() {
             .offset = {0, 0},
             .extent = swapchainExtent
         },
-        .framebuffer = m_framebuffers[m_currentFrameInFlight],
+        .framebuffer = m_framebuffers[imageIndex],
         .imageAvailableSemaphore = m_imageAvailableSemaphores[m_currentFrameInFlight],
         .renderFinishedSemaphore = m_renderFinishedSemaphores[m_currentFrameInFlight],
         .submitFrameFence = m_submitFrameFences[m_currentFrameInFlight]

@@ -184,6 +184,8 @@ void MainRenderPipeline::RecordAndSubmit(const MainRenderPipeline::RecordDesc& d
 
     VkCommandBuffer commandBuffer = m_graphicsCommandBuffers[desc.frameIndex];
 
+    vkResetCommandBuffer(commandBuffer, 0);
+
     constexpr VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         // TODO: Learn about this
