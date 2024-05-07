@@ -263,8 +263,8 @@ void App::Update() {
     vkResetFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFences[m_currentFrameInFlight]);
 
 
-    VkExtent2D swapchainExtent = m_swapchain->GetExtent();
-    MainRenderPipeline::RecordDesc recordDesc = {
+    const VkExtent2D swapchainExtent = m_swapchain->GetExtent();
+    const MainRenderPipeline::RecordDesc recordDesc = {
         .frameIndex = m_currentFrameInFlight,
         .renderArea = {
             .offset = {0, 0},

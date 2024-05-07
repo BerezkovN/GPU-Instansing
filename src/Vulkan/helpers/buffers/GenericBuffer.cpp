@@ -1,6 +1,8 @@
 #include "GenericBuffer.hpp"
 
 #include <stdexcept>
+#include <spdlog/spdlog.h>
+#include <spdlog/fmt/bin_to_hex.h>
 
 GenericBuffer::GenericBuffer(const Device* device, const GenericBuffer::Desc& desc) {
 
@@ -11,11 +13,15 @@ GenericBuffer::GenericBuffer(const Device* device, const GenericBuffer::Desc& de
 }
 
 void GenericBuffer::Destroy() {
-    vkDestroyBuffer(m_device->GetVkDevice(), m_buffer, nullptr);
-    vkFreeMemory(m_device->GetVkDevice(), m_bufferMemory, nullptr);
 
-    m_buffer = VK_NULL_HANDLE;
+    vkFreeMemory(m_device->GetVkDevice(), m_bufferMemory, nullptr);
+    vkDestroyBuffer(m_device->GetVkDevice(), m_buffer, nullptr);
+
     m_bufferMemory = VK_NULL_HANDLE;
+    m_buffer = VK_NULL_HANDLE;
+
+    m_allocatedMemorySize = 0;
+    m_bufferSize = 0;
 }
 
 void* GenericBuffer::MapMemory(const VkDeviceSize memorySize) {
@@ -29,8 +35,6 @@ void* GenericBuffer::MapMemory(const VkDeviceSize memorySize) {
 
 void GenericBuffer::UnmapMemory() {
     vkUnmapMemory(m_device->GetVkDevice(), m_bufferMemory);
-
-    m_bufferMemory = VK_NULL_HANDLE;
     m_mappedMemory = nullptr;
 }
 

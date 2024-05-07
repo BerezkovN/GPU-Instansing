@@ -189,6 +189,8 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
 
 void MainRenderPipeline::Destroy() {
 
+    this->DestroyDescriptorPool();
+    this->DestroyDescriptorSetLayout();
     this->DestroyUniformBuffers();
     this->DestroyIndexBuffer();
     this->DestroyVertexBuffer();
@@ -324,6 +326,7 @@ void MainRenderPipeline::CreateDescriptorSetLayout() {
 
 void MainRenderPipeline::DestroyDescriptorSetLayout() {
     vkDestroyDescriptorSetLayout(m_device->GetVkDevice(), m_descriptorSetLayout, nullptr);
+    m_descriptorSetLayout = VK_NULL_HANDLE;
 }
 
 void MainRenderPipeline::CreateUniformBuffers() {
@@ -372,8 +375,8 @@ void MainRenderPipeline::UpdateUniformBuffers(uint32_t currentImage) const {
 
 void MainRenderPipeline::DestroyUniformBuffers() {
 
-    for (size_t ind = 0; ind < m_uniformBuffers.size(); ind++) {
-        m_uniformBuffers[ind]->Destroy();
+    for (const auto& uniformBuffer : m_uniformBuffers) {
+	    uniformBuffer->Destroy();
     }
 
     m_uniformBuffers.clear();
@@ -387,7 +390,7 @@ void MainRenderPipeline::CreateDescriptorPool() {
         .descriptorCount = m_framesInFlight
     };
 
-    VkDescriptorPoolCreateInfo poolCreateInfo = {
+    const VkDescriptorPoolCreateInfo poolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .maxSets = m_framesInFlight,
         .poolSizeCount = 1,
