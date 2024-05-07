@@ -2,6 +2,7 @@
 
 #include "pch.hpp"
 #include "helpers/VkHelper.hpp"
+#include "renderers/MainRenderer.hpp"
 #include "renderers/MainRenderPass.hpp"
 #include "renderers/MainRenderPipeline.hpp"
 
@@ -50,27 +51,20 @@ App::App() {
 
     m_renderPass = std::make_unique<MainRenderPass>(m_mainDevice.get(), m_swapchain.get());
 
-
-    m_shaderManager = std::make_unique<ShaderManager>(m_mainDevice.get());
-    const VkShaderModule fragModule = m_shaderManager->LoadShader("shaders/triangle.frag.spv");
-    const VkShaderModule vertModule = m_shaderManager->LoadShader("shaders/triangle.vert.spv");
-
     std::optional<const DeviceQueue*> transferQueue = std::nullopt;
     if (m_transferQueue.has_value()) {
         transferQueue = m_transferQueue.value().get();
     }
 
-    MainRenderPipeline::CreateDesc pipelineDesc = {
+    MainRenderer::CreateDesc rendererDesc = {
         .app = this,
         .framesInFlight = m_config->framesInFlight,
         .device = m_mainDevice.get(),
         .renderPass = m_renderPass.get(),
         .graphicsQueue = m_graphicsQueue.get(),
-        .transferQueue = transferQueue,
-        .fragmentShader = fragModule,
-        .vertexShader = vertModule
+        .transferQueue = m_transferQueue.has_value() ? std::make_optional(m_transferQueue.value().get()) : std::nullopt
     };
-    m_renderPipeline = std::make_unique<MainRenderPipeline>(pipelineDesc);
+    m_renderer = std::make_unique<MainRenderer>(rendererDesc);
 
     this->CreateFramebuffers();
     this->CreateSyncObjects();
@@ -93,11 +87,9 @@ void App::Destroy() {
 
     this->DestroySyncObjects();
 
-    m_renderPipeline->Destroy();
+    m_renderer->Destroy();
     m_renderPass->Destroy();
-
-    m_shaderManager->DestroyAllShaders();
-
+    
     this->DestroyFramebuffers();
     m_swapchain->Destroy();
     m_surface->Destroy();
@@ -264,7 +256,7 @@ void App::Update() {
 
 
     const VkExtent2D swapchainExtent = m_swapchain->GetExtent();
-    const MainRenderPipeline::RecordDesc recordDesc = {
+    const MainRenderer::RecordDesc recordDesc = {
         .frameIndex = m_currentFrameInFlight,
         .renderArea = {
             .offset = {0, 0},
@@ -275,7 +267,7 @@ void App::Update() {
         .renderFinishedSemaphore = m_renderFinishedSemaphores[m_currentFrameInFlight],
         .submitFrameFence = m_submitFrameFences[m_currentFrameInFlight]
     };
-    m_renderPipeline->RecordAndSubmit(recordDesc);
+    m_renderer->RecordAndSubmit(recordDesc);
 
     VkSwapchainKHR swapchain = m_swapchain->GetVkSwapchain();
     const VkPresentInfoKHR presentInfo = {

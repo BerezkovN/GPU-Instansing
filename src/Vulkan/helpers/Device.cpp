@@ -33,6 +33,8 @@ Device::Device(const App* app, VkPhysicalDevice physicalDevice) {
     vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
     vkGetPhysicalDeviceFeatures(m_physicalDevice, &m_physicalDeviceFeatures);
 
+    spdlog::info("[Device] Push constants size: {}", m_physicalDeviceProperties.limits.maxMemoryAllocationCount);
+
     // Extensions
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);

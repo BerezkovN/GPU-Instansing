@@ -9,6 +9,7 @@
 #include "helpers/Device.hpp"
 #include "helpers/ShaderManager.hpp"
 #include "helpers/DeviceQueue.hpp"
+#include "helpers/IRenderer.hpp"
 #include "helpers/Surface.hpp"
 #include "helpers/Swapchain.hpp"
 #include "helpers/IRenderPass.hpp"
@@ -66,10 +67,9 @@ private:
 	std::unique_ptr<Swapchain> m_swapchain;
 	std::vector<VkFramebuffer> m_framebuffers;
 
-	std::unique_ptr<ShaderManager> m_shaderManager;
 	std::unique_ptr<IRenderPass> m_renderPass;
 
-	std::unique_ptr<IRenderPipeline> m_renderPipeline;
+	std::unique_ptr<IRenderer> m_renderer;
 
 	/* * *
 	 * Frame synchronization objects.
