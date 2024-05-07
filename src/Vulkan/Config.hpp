@@ -11,7 +11,7 @@ struct Config {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
-    std::optional<DeviceID> mainDeviceID{ 13636323128864058671u };
+    std::optional<DeviceID> mainDeviceID{  };
     VkPhysicalDeviceType vkRequiredDeviceType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 
     VkFormat vkPreferredSurfaceFormat = VK_FORMAT_B8G8R8A8_SRGB;

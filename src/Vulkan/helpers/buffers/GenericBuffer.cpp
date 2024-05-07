@@ -65,6 +65,10 @@ VkDeviceSize GenericBuffer::GetAllocatedMemorySize() const {
     return m_allocatedMemorySize;
 }
 
+VkDeviceSize GenericBuffer::GetBufferSize() const {
+    return m_bufferSize;
+}
+
 VkBuffer GenericBuffer::GetVkBuffer() const {
     return m_buffer;
 }
@@ -91,6 +95,8 @@ void GenericBuffer::CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo) {
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[GenericBuffer] Could not create buffer");
     }
+
+    m_bufferSize = bufferCreateInfo.size;
 }
 
 void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryProperty) {

@@ -10,6 +10,7 @@ struct Vertex
     int color;
 };
 
+// Beware of alignment!
 struct UniformBufferObject
 {
     glm::mat4 model;
@@ -340,7 +341,7 @@ void MainRenderPipeline::CreateUniformBuffers() {
         };
 
         auto uniformBuffer = std::make_unique<GenericBuffer>(m_device, desc);
-        uniformBuffer->MapMemory(uniformBuffer->GetAllocatedMemorySize());
+        uniformBuffer->MapMemory(uniformBuffer->GetBufferSize());
         m_uniformBuffers.push_back(std::move(uniformBuffer));
     }
 
@@ -430,7 +431,7 @@ void MainRenderPipeline::CreateDescriptorSets() {
         VkDescriptorBufferInfo bufferInfo = {
             .buffer = m_uniformBuffers[ind]->GetVkBuffer(),
             .offset = 0,
-            .range = m_uniformBuffers[ind]->GetAllocatedMemorySize()
+            .range = m_uniformBuffers[ind]->GetBufferSize()
         };
 
         VkWriteDescriptorSet descriptorWrite = {
