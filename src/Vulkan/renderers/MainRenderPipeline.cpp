@@ -1,5 +1,6 @@
 #include "MainRenderPipeline.hpp"
 
+#include "../App.hpp"
 #include "../pch.hpp"
 #include "../helpers/buffers/LocalBuffer.hpp"
 
@@ -9,8 +10,16 @@ struct Vertex
     int color;
 };
 
+struct UniformBufferObject
+{
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& desc) {
 
+    m_app = desc.app;
     m_framesInFlight = desc.framesInFlight;
     m_device = desc.device;
     m_renderPass = desc.renderPass;
@@ -96,7 +105,7 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VK_POLYGON_MODE_FILL,
         .cullMode = VK_CULL_MODE_BACK_BIT,
-        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .frontFace = VK_FRONT_FACE_CLOCKWISE,
         .lineWidth = 1.0f
     };
 
@@ -128,9 +137,12 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
         .pAttachments = &blendAttachmentState,
     };
 
+    this->CreateDescriptorSetLayout();
     // TODO: Learn more about this
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &m_descriptorSetLayout
     };
 
     VkResult result = vkCreatePipelineLayout(m_device->GetVkDevice(), & pipelineLayoutCreateInfo, nullptr, & m_pipelineLayout);
@@ -169,10 +181,14 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
     this->CreateCommandBuffers();
     this->CreateVertexBuffer();
     this->CreateIndexBuffer();
+    this->CreateUniformBuffers();
+    this->CreateDescriptorPool();
+    this->CreateDescriptorSets();
 }
 
 void MainRenderPipeline::Destroy() {
 
+    this->DestroyUniformBuffers();
     this->DestroyIndexBuffer();
     this->DestroyVertexBuffer();
     this->DestroyCommandBuffers();
@@ -233,10 +249,15 @@ void MainRenderPipeline::RecordAndSubmit(const MainRenderPipeline::RecordDesc& d
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
+    this->UpdateUniformBuffers(desc.frameIndex);
+
+    // Learn about vkCmdBindVertexBuffers
     const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer() };
     constexpr VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[desc.frameIndex], 0, nullptr);
 
     vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 
@@ -274,6 +295,156 @@ void MainRenderPipeline::RecordAndSubmit(const MainRenderPipeline::RecordDesc& d
 
 VkPipeline MainRenderPipeline::GetVkPipeline() const {
 	return m_pipeline;
+}
+
+void MainRenderPipeline::CreateDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding uboLayoutBinding = {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
+    VkDescriptorSetLayoutCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        // TODO: Learn more about this
+        .flags = 0,
+        .bindingCount = 1,
+        .pBindings = &uboLayoutBinding
+    };
+
+
+    const VkResult result = vkCreateDescriptorSetLayout(m_device->GetVkDevice(), &createInfo, nullptr, &m_descriptorSetLayout);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[MainRenderPipeline] Could not create descriptor set layout");
+    }
+}
+
+void MainRenderPipeline::DestroyDescriptorSetLayout() {
+    vkDestroyDescriptorSetLayout(m_device->GetVkDevice(), m_descriptorSetLayout, nullptr);
+}
+
+void MainRenderPipeline::CreateUniformBuffers() {
+
+    for (uint32_t ind = 0; ind < m_framesInFlight; ind++) {
+
+        GenericBuffer::Desc desc = {
+            .bufferCreateInfo = {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .size = sizeof(UniformBufferObject),
+                .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            },
+            .memoryProperty = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        };
+
+        auto uniformBuffer = std::make_unique<GenericBuffer>(m_device, desc);
+        uniformBuffer->MapMemory(uniformBuffer->GetAllocatedMemorySize());
+        m_uniformBuffers.push_back(std::move(uniformBuffer));
+    }
+
+}
+
+void MainRenderPipeline::UpdateUniformBuffers(uint32_t currentImage) const {
+
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    int width, height;
+    m_app->GetScreenSize(width, height);
+
+    UniformBufferObject ubo = {
+        .model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        .view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        .proj = glm::perspective(glm::radians(45.0f), width / static_cast<float>(height), 0.1f, 10.0f)
+    };
+
+    ubo.proj[1][1] *= -1;
+
+    // TODO: Learn about push constants
+    void* mappedUboPtr = m_uniformBuffers[currentImage]->GetMappedMemory();
+    std::memcpy(mappedUboPtr, &ubo, sizeof(ubo));
+}
+
+void MainRenderPipeline::DestroyUniformBuffers() {
+
+    for (size_t ind = 0; ind < m_uniformBuffers.size(); ind++) {
+        m_uniformBuffers[ind]->Destroy();
+    }
+
+    m_uniformBuffers.clear();
+}
+
+void MainRenderPipeline::CreateDescriptorPool() {
+
+    VkDescriptorPoolSize poolSize = {
+        // TODO: Learn more
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = m_framesInFlight
+    };
+
+    VkDescriptorPoolCreateInfo poolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = m_framesInFlight,
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize,
+    };
+
+    const VkResult result = vkCreateDescriptorPool(m_device->GetVkDevice(), &poolCreateInfo, nullptr, &m_descriptorPool);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[MainRenderPipeline] Could not create descriptor pool");
+    }
+}
+
+void MainRenderPipeline::DestroyDescriptorPool() {
+
+    // Should automatically get cleaned when destroying descriptor pool.
+	m_descriptorSets.clear();
+
+    vkDestroyDescriptorPool(m_device->GetVkDevice(), m_descriptorPool, nullptr);
+    m_descriptorPool = VK_NULL_HANDLE;
+
+}
+
+void MainRenderPipeline::CreateDescriptorSets() {
+
+    std::vector<VkDescriptorSetLayout> layouts(m_framesInFlight, m_descriptorSetLayout);
+
+    const VkDescriptorSetAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = m_descriptorPool,
+        .descriptorSetCount = m_framesInFlight,
+        .pSetLayouts = layouts.data()
+    };
+
+    m_descriptorSets.resize(m_framesInFlight);
+    const VkResult result = vkAllocateDescriptorSets(m_device->GetVkDevice(), &allocateInfo, m_descriptorSets.data());
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[MainRenderPipeline] Could not allocate descriptor sets");
+    }
+
+    for (uint32_t ind = 0; ind < m_framesInFlight; ind++) {
+        VkDescriptorBufferInfo bufferInfo = {
+            .buffer = m_uniformBuffers[ind]->GetVkBuffer(),
+            .offset = 0,
+            .range = m_uniformBuffers[ind]->GetAllocatedMemorySize()
+        };
+
+        VkWriteDescriptorSet descriptorWrite = {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = m_descriptorSets[ind],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pBufferInfo = &bufferInfo
+        };
+        vkUpdateDescriptorSets(m_device->GetVkDevice(), 1, &descriptorWrite, 0, nullptr);
+    }
+
 }
 
 void MainRenderPipeline::CreateCommandPools() {

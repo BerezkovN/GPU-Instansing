@@ -18,12 +18,27 @@ void GenericBuffer::Destroy() {
     m_bufferMemory = VK_NULL_HANDLE;
 }
 
-void GenericBuffer::CopyData(const void* data, size_t dataSize) const {
+void* GenericBuffer::MapMemory(const VkDeviceSize memorySize) {
 
-    void* mappedPointer;
-    vkMapMemory(m_device->GetVkDevice(), m_bufferMemory, 0, dataSize, 0, &mappedPointer);
-    std::memcpy(mappedPointer, data, dataSize);
+    if (m_mappedMemory != nullptr) {
+        throw std::runtime_error("[GenericBuffer] Memory is already mapped");
+    }
+    vkMapMemory(m_device->GetVkDevice(), m_bufferMemory, 0, memorySize, 0, &m_mappedMemory);
+    return m_mappedMemory;
+}
+
+void GenericBuffer::UnmapMemory() {
     vkUnmapMemory(m_device->GetVkDevice(), m_bufferMemory);
+
+    m_bufferMemory = VK_NULL_HANDLE;
+    m_mappedMemory = nullptr;
+}
+
+void GenericBuffer::CopyData(const void* data, const VkDeviceSize dataSize) {
+
+    void* mappedPointer = this->MapMemory(dataSize);
+    std::memcpy(mappedPointer, data, dataSize);
+    this->UnmapMemory();
 }
 
 void GenericBuffer::CopyFromBuffer(const VkCommandBuffer commandBuffer, const GenericBuffer* srcBuffer, const VkBufferCopy& bufferCopyInfo) const {
@@ -36,6 +51,18 @@ void GenericBuffer::CopyFromBuffer(const VkCommandBuffer commandBuffer, const Ge
 
     vkCmdCopyBuffer(commandBuffer, srcBuffer->GetVkBuffer(), m_buffer, 1, &bufferCopyInfo);
     vkEndCommandBuffer(commandBuffer);
+}
+
+void* GenericBuffer::GetMappedMemory() const {
+    if (m_mappedMemory == nullptr) {
+        throw std::runtime_error("[GenericBuffer] Memory is not mapped");
+    }
+
+    return m_mappedMemory;
+}
+
+VkDeviceSize GenericBuffer::GetAllocatedMemorySize() const {
+    return m_allocatedMemorySize;
 }
 
 VkBuffer GenericBuffer::GetVkBuffer() const {
@@ -55,6 +82,10 @@ GenericBuffer::GenericBuffer(const Device* device) {
 }
 
 void GenericBuffer::CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo) {
+
+    if (bufferCreateInfo.size == 0) {
+        throw std::runtime_error("[GenericBuffer] Trying to create a buffer with size of 0");
+    }
 
 	const VkResult result = vkCreateBuffer(m_device->GetVkDevice(), &bufferCreateInfo, nullptr, &m_buffer);
     if (result != VK_SUCCESS) {
@@ -80,6 +111,7 @@ void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryProperty) {
         throw std::runtime_error("[GenericBuffer] Could not allocate memory for the vertex buffer");
     }
 
+    m_allocatedMemorySize = memoryRequirements.size;
     vkBindBufferMemory(m_device->GetVkDevice(), m_buffer, m_bufferMemory, 0);
 }
 

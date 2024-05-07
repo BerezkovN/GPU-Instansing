@@ -61,6 +61,7 @@ App::App() {
     }
 
     MainRenderPipeline::CreateDesc pipelineDesc = {
+        .app = this,
         .framesInFlight = m_config->framesInFlight,
         .device = m_mainDevice.get(),
         .renderPass = m_renderPass.get(),

@@ -11,6 +11,7 @@ class MainRenderPipeline : public IRenderPipeline
 public:
 	struct CreateDesc
 	{
+		const App* app;
 		uint32_t framesInFlight;
 		const Device* device;
 		const IRenderPass* renderPass;
@@ -29,6 +30,18 @@ public:
 
 private:
 
+	void CreateDescriptorSetLayout();
+	void DestroyDescriptorSetLayout();
+
+	void CreateUniformBuffers();
+	void UpdateUniformBuffers(uint32_t currentImage) const;
+	void DestroyUniformBuffers();
+
+	void CreateDescriptorPool();
+	void DestroyDescriptorPool();
+
+	void CreateDescriptorSets();
+
 	void CreateCommandPools();
 	void DestroyCommandPools();
 
@@ -41,6 +54,7 @@ private:
 	void CreateIndexBuffer();
 	void DestroyIndexBuffer();
 
+	const App* m_app;
 	uint32_t m_framesInFlight;
 	const Device* m_device;
 	const IRenderPass* m_renderPass;
@@ -58,6 +72,12 @@ private:
 
 	std::unique_ptr<GenericBuffer> m_vertexBuffer;
 	std::unique_ptr<GenericBuffer> m_indexBuffer;
+
+	std::vector<std::unique_ptr<GenericBuffer>> m_uniformBuffers;
+
+	VkDescriptorSetLayout m_descriptorSetLayout;
+	VkDescriptorPool m_descriptorPool;
+	std::vector<VkDescriptorSet> m_descriptorSets;
 
 	VkPipelineLayout m_pipelineLayout;
 	VkPipeline m_pipeline;
