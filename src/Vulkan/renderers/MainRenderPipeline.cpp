@@ -1,7 +1,7 @@
 #include "MainRenderPipeline.hpp"
 
 #include "../pch.hpp"
-#include "../helpers/buffers/StagingBuffer.hpp"
+#include "../helpers/buffers/LocalBuffer.hpp"
 
 struct Vertex
 {
@@ -168,10 +168,12 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
     this->CreateCommandPools();
     this->CreateCommandBuffers();
     this->CreateVertexBuffer();
+    this->CreateIndexBuffer();
 }
 
 void MainRenderPipeline::Destroy() {
 
+    this->DestroyIndexBuffer();
     this->DestroyVertexBuffer();
     this->DestroyCommandBuffers();
     this->DestroyCommandPools();
@@ -234,8 +236,9 @@ void MainRenderPipeline::RecordAndSubmit(const MainRenderPipeline::RecordDesc& d
     const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer() };
     constexpr VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -358,53 +361,46 @@ void MainRenderPipeline::DestroyCommandBuffers() {
 
 void MainRenderPipeline::CreateVertexBuffer() {
     const std::vector<Vertex> vertices = {
-	    {{-0.5f, 0.5f, 0.0f}, -1},
-	    {{ 0.5f, 0.5f, 0.0f}, 0xFF03102},
-	    {{ 0.0f,  -0.5f, 0.0f}, -1},
+	    {{-0.5f, -0.5f, 0.0f}, -1},
+	    {{-0.5f,  0.5f, 0.0f}, 0xFF03102},
+	    {{ 0.5f,  0.5f, 0.0f}, -1},
+	    {{ 0.5f, -0.5f, 0.0f}, 0xFF03102},
     };
 
-    const uint32_t bufferSize = sizeof(Vertex) * static_cast<uint32_t>(vertices.size());
-
-    StagingBuffer::Desc stagingBufferDesc = {
+    LocalBuffer::Desc desc = {
         .graphicsQueue = m_graphicsQueue,
         .transferQueue = m_transferQueue,
-        .bufferSize = bufferSize
-    };
-    const auto stagingBuffer = std::make_unique<StagingBuffer>(m_device, stagingBufferDesc);
-    stagingBuffer->CopyData(vertices.data(), bufferSize);
-
-    GenericBuffer::Desc desc = {
-        .bufferCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-	        .size = sizeof(Vertex) * vertices.size(),
-	        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-	        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
-        },
-        .memoryProperty = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        .transferCommandBuffer = m_transferCommandBuffer,
+        .usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .buffer = vertices.data(),
+        .bufferSize = static_cast < uint32_t>(sizeof(Vertex) * vertices.size())
     };
 
-    m_vertexBuffer = std::make_unique<GenericBuffer>(m_device, desc);
-    m_vertexBuffer->CopyFromBuffer(m_transferCommandBuffer, stagingBuffer.get(), {
-        .srcOffset = 0,
-        .dstOffset = 0,
-        .size = bufferSize
-    });
-
-    const VkSubmitInfo submitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &m_transferCommandBuffer
-    };
-
-    const VkQueue copyQueue = m_transferQueue.has_value() ? m_transferQueue.value()->GetVkQueue() : m_graphicsQueue->GetVkQueue();
-    vkQueueSubmit(copyQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(copyQueue);
-
-    stagingBuffer->Destroy();
+    m_vertexBuffer = std::make_unique<LocalBuffer>(m_device, desc);
 }
 
 void MainRenderPipeline::DestroyVertexBuffer() {
     m_vertexBuffer->Destroy();
     m_vertexBuffer = nullptr;
+}
+
+void MainRenderPipeline::CreateIndexBuffer() {
+    const std::vector<uint16_t> indices = { 0, 1, 2, 2, 3, 0 };
+
+    LocalBuffer::Desc desc = {
+        .graphicsQueue = m_graphicsQueue,
+        .transferQueue = m_transferQueue,
+        .transferCommandBuffer = m_transferCommandBuffer,
+        .usageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        .buffer = indices.data(),
+        .bufferSize = static_cast <uint32_t>(sizeof(uint16_t) * indices.size())
+    };
+
+    m_indexBuffer = std::make_unique<LocalBuffer>(m_device, desc);
+}
+
+void MainRenderPipeline::DestroyIndexBuffer() {
+    m_indexBuffer->Destroy();
+    m_indexBuffer = nullptr;
 }
 

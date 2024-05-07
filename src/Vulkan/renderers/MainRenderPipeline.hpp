@@ -38,6 +38,9 @@ private:
 	void CreateVertexBuffer();
 	void DestroyVertexBuffer();
 
+	void CreateIndexBuffer();
+	void DestroyIndexBuffer();
+
 	uint32_t m_framesInFlight;
 	const Device* m_device;
 	const IRenderPass* m_renderPass;
@@ -54,6 +57,7 @@ private:
 	VkCommandBuffer m_transferCommandBuffer;
 
 	std::unique_ptr<GenericBuffer> m_vertexBuffer;
+	std::unique_ptr<GenericBuffer> m_indexBuffer;
 
 	VkPipelineLayout m_pipelineLayout;
 	VkPipeline m_pipeline;
