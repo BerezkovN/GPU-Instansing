@@ -13,7 +13,6 @@ public:
 	struct CreateDesc
 	{
 		const App* app;
-		uint32_t framesInFlight;
 		const Device* device;
 		const IRenderPass* renderPass;
 		const DeviceQueue* graphicsQueue;
@@ -27,7 +26,7 @@ private:
 
 
 	void CreateUniformBuffers();
-	void UpdateUniformBuffers(uint32_t currentImage) const;
+	void UpdateUniformBuffers() const;
 	void DestroyUniformBuffers();
 
 	void CreateCommandPools();
@@ -43,7 +42,6 @@ private:
 	void DestroyIndexBuffer();
 
 	const App* m_app;
-	uint32_t m_framesInFlight;
 
 	const Device* m_device;
 	const IRenderPass* m_renderPass;
@@ -52,7 +50,7 @@ private:
 
 	const DeviceQueue* m_graphicsQueue;
 	VkCommandPool m_graphicsCommandPool;
-	std::vector<VkCommandBuffer> m_graphicsCommandBuffers{};
+	VkCommandBuffer m_graphicsCommandBuffer;
 
 	std::optional<const DeviceQueue*> m_transferQueue;
 	std::optional<VkCommandPool> m_transferCommandPool;
@@ -61,7 +59,7 @@ private:
 	std::unique_ptr<GenericBuffer> m_vertexBuffer;
 	std::unique_ptr<GenericBuffer> m_indexBuffer;
 
-	std::vector<std::unique_ptr<GenericBuffer>> m_uniformBuffers;
+	std::unique_ptr<GenericBuffer> m_uniformBuffer;
 
 	std::unique_ptr<IRenderPipeline> m_mainRenderPipeline;
 };

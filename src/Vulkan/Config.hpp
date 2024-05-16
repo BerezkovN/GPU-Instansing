@@ -20,5 +20,4 @@ struct Config {
     VkPresentModeKHR vkPreferredPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 
     uint32_t swapChainImageCount = 2;
-    uint32_t framesInFlight = 2;
 };

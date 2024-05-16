@@ -8,7 +8,6 @@
 MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& desc) {
 
     m_app = desc.app;
-    m_framesInFlight = desc.framesInFlight;
     m_device = desc.device;
     m_renderPass = desc.renderPass;
 
@@ -176,8 +175,8 @@ void MainRenderPipeline::Destroy() {
 	vkDestroyPipelineLayout(m_device->GetVkDevice(), m_pipelineLayout, nullptr);
 }
 
-void MainRenderPipeline::BindDescriptors(VkCommandBuffer buffer, uint32_t frameIndex) {
-    vkCmdBindDescriptorSets(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, DescriptorSetCount, m_descriptorSets[frameIndex].indexed.data(), 0, nullptr);
+void MainRenderPipeline::BindDescriptors(VkCommandBuffer buffer) {
+    vkCmdBindDescriptorSets(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, DescriptorSetCount, m_descriptorSets[0].indexed.data(), 0, nullptr);
 }
 
 VkPipeline MainRenderPipeline::GetVkPipeline() const {
@@ -223,12 +222,12 @@ void MainRenderPipeline::CreateDescriptorPool() {
     VkDescriptorPoolSize poolSize = {
         // TODO: Learn more
         .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = m_framesInFlight * 1
+        .descriptorCount = 1
     };
 
     const VkDescriptorPoolCreateInfo poolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = m_framesInFlight * DescriptorSetCount,
+        .maxSets = DescriptorSetCount,
         .poolSizeCount = 1,
         .pPoolSizes = &poolSize,
     };
@@ -253,38 +252,36 @@ void MainRenderPipeline::CreateDescriptorSets(const std::vector<PipelineDescript
 
     m_descriptorSets.resize(descriptorSetWrites.size());
 
-    for (uint32_t ind = 0; ind < m_framesInFlight; ind++) {
+    const VkDescriptorSetAllocateInfo allocateInfo = {
+	    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+	    .descriptorPool = m_descriptorPool,
+	    .descriptorSetCount = DescriptorSetCount,
+	    .pSetLayouts = &m_descriptorSetLayout
+    };
 
-        const VkDescriptorSetAllocateInfo allocateInfo = {
-		    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-		    .descriptorPool = m_descriptorPool,
-		    .descriptorSetCount = DescriptorSetCount,
-		    .pSetLayouts = &m_descriptorSetLayout
-        };
-
-        const VkResult result = vkAllocateDescriptorSets(m_device->GetVkDevice(), &allocateInfo, m_descriptorSets[ind].indexed.data());
-        if (result != VK_SUCCESS) {
-            throw std::runtime_error("[MainRenderPipeline] Could not allocate descriptor sets");
-        }
-
-        VkDescriptorBufferInfo bufferInfo = {
-		    .buffer = descriptorSetWrites[ind].uniformBufferObject.buffer,
-		    .offset = descriptorSetWrites[ind].uniformBufferObject.offset,
-		    .range = descriptorSetWrites[ind].uniformBufferObject.range
-        };
-
-        VkWriteDescriptorSet writeDescriptorSet = {
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = m_descriptorSets[ind].named.uniformBufferObject,
-            .dstBinding = 0,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = descriptorSetWrites[ind].uniformBufferObject.descriptorType,
-            .pBufferInfo = &bufferInfo
-        };
-
-        vkUpdateDescriptorSets(m_device->GetVkDevice(), 1, &writeDescriptorSet, 0, nullptr);
+    const VkResult result = vkAllocateDescriptorSets(m_device->GetVkDevice(), &allocateInfo, m_descriptorSets[0].indexed.data());
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[MainRenderPipeline] Could not allocate descriptor sets");
     }
+
+    VkDescriptorBufferInfo bufferInfo = {
+	    .buffer = descriptorSetWrites[0].uniformBufferObject.buffer,
+	    .offset = descriptorSetWrites[0].uniformBufferObject.offset,
+	    .range = descriptorSetWrites[0].uniformBufferObject.range
+    };
+
+    VkWriteDescriptorSet writeDescriptorSet = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = m_descriptorSets[0].named.uniformBufferObject,
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = descriptorSetWrites[0].uniformBufferObject.descriptorType,
+        .pBufferInfo = &bufferInfo
+    };
+
+    vkUpdateDescriptorSets(m_device->GetVkDevice(), 1, &writeDescriptorSet, 0, nullptr);
+
 
 }
 

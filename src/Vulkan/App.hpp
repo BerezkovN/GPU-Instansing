@@ -75,11 +75,9 @@ private:
 	 * Frame synchronization objects.
 	 */
 
-	std::vector<VkSemaphore> m_imageAvailableSemaphores{};
-	std::vector<VkSemaphore> m_renderFinishedSemaphores{};
-	std::vector<VkFence> m_submitFrameFences{};
-
-	uint32_t m_currentFrameInFlight{};
+	VkSemaphore m_imageAvailableSemaphore{};
+	VkSemaphore m_renderFinishedSemaphore{};
+	VkFence m_submitFrameFence{};
 
 	std::shared_ptr<DeviceQueue> m_graphicsQueue;
     std::optional<std::shared_ptr<DeviceQueue>> m_transferQueue;

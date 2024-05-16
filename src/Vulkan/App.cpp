@@ -58,7 +58,6 @@ App::App() {
 
     MainRenderer::CreateDesc rendererDesc = {
         .app = this,
-        .framesInFlight = m_config->framesInFlight,
         .device = m_mainDevice.get(),
         .renderPass = m_renderPass.get(),
         .graphicsQueue = m_graphicsQueue.get(),
@@ -229,7 +228,7 @@ void App::ChooseMainDevice() {
 
 void App::Update() {
 
-    vkWaitForFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFences[m_currentFrameInFlight], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFence, VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
     if (m_mustResize) {
@@ -239,7 +238,7 @@ void App::Update() {
 
         return;
     }
-    VkResult result = vkAcquireNextImageKHR(m_mainDevice->GetVkDevice(), m_swapchain->GetVkSwapchain(), UINT64_MAX, m_imageAvailableSemaphores[m_currentFrameInFlight], VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(m_mainDevice->GetVkDevice(), m_swapchain->GetVkSwapchain(), UINT64_MAX, m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         m_mustResize = true;
@@ -252,20 +251,19 @@ void App::Update() {
         std::cout << "[App] The current swap chain is suboptimal\n";
     }
 
-    vkResetFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFences[m_currentFrameInFlight]);
+    vkResetFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFence);
 
 
     const VkExtent2D swapchainExtent = m_swapchain->GetExtent();
     const MainRenderer::RecordDesc recordDesc = {
-        .frameIndex = m_currentFrameInFlight,
         .renderArea = {
             .offset = {0, 0},
             .extent = swapchainExtent
         },
         .framebuffer = m_framebuffers[imageIndex],
-        .imageAvailableSemaphore = m_imageAvailableSemaphores[m_currentFrameInFlight],
-        .renderFinishedSemaphore = m_renderFinishedSemaphores[m_currentFrameInFlight],
-        .submitFrameFence = m_submitFrameFences[m_currentFrameInFlight]
+        .imageAvailableSemaphore = m_imageAvailableSemaphore,
+        .renderFinishedSemaphore = m_renderFinishedSemaphore,
+        .submitFrameFence = m_submitFrameFence
     };
     m_renderer->RecordAndSubmit(recordDesc);
 
@@ -273,7 +271,7 @@ void App::Update() {
     const VkPresentInfoKHR presentInfo = {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &m_renderFinishedSemaphores[m_currentFrameInFlight],
+        .pWaitSemaphores = &m_renderFinishedSemaphore,
         .swapchainCount = 1,
         .pSwapchains = &swapchain,
         .pImageIndices = &imageIndex
@@ -283,8 +281,6 @@ void App::Update() {
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[App] Error presenting graphics queue: " + std::to_string(result));
     }
-
-    m_currentFrameInFlight = (m_currentFrameInFlight + 1) % m_config->framesInFlight;
 }
 
 
@@ -353,33 +349,23 @@ void App::CreateSyncObjects() {
         .flags = VK_FENCE_CREATE_SIGNALED_BIT
     };
 
-    m_imageAvailableSemaphores.resize(m_config->framesInFlight);
-    m_renderFinishedSemaphores.resize(m_config->framesInFlight);
-    m_submitFrameFences.resize(m_config->framesInFlight);
 
-    for (size_t ind = 0; ind < m_config->framesInFlight; ind++) {
-		    
-	    if (vkCreateSemaphore(m_mainDevice->GetVkDevice(), &semaphoreCreateInfo, nullptr, &m_imageAvailableSemaphores[ind]) != VK_SUCCESS ||
-            vkCreateSemaphore(m_mainDevice->GetVkDevice(), &semaphoreCreateInfo, nullptr, &m_renderFinishedSemaphores[ind]) != VK_SUCCESS ||
-            vkCreateFence(m_mainDevice->GetVkDevice(), &fenceCreateInfo, nullptr, &m_submitFrameFences[ind]) != VK_SUCCESS)
-	    {
-	        throw std::runtime_error("[App] Could not create sync objects");
-	    }
+    if (vkCreateSemaphore(m_mainDevice->GetVkDevice(), &semaphoreCreateInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS ||
+        vkCreateSemaphore(m_mainDevice->GetVkDevice(), &semaphoreCreateInfo, nullptr, &m_renderFinishedSemaphore) != VK_SUCCESS ||
+        vkCreateFence(m_mainDevice->GetVkDevice(), &fenceCreateInfo, nullptr, &m_submitFrameFence) != VK_SUCCESS)
+    {
+        throw std::runtime_error("[App] Could not create sync objects");
     }
+
 
 }
 
 void App::DestroySyncObjects() {
-    for (size_t ind = 0; ind < m_config->framesInFlight; ind++) {
 
-        vkDestroySemaphore(m_mainDevice->GetVkDevice(), m_imageAvailableSemaphores[ind], nullptr);
-        vkDestroySemaphore(m_mainDevice->GetVkDevice(), m_renderFinishedSemaphores[ind], nullptr);
-        vkDestroyFence(m_mainDevice->GetVkDevice(), m_submitFrameFences[ind], nullptr);
-    }
+    vkDestroySemaphore(m_mainDevice->GetVkDevice(), m_imageAvailableSemaphore, nullptr);
+    vkDestroySemaphore(m_mainDevice->GetVkDevice(), m_renderFinishedSemaphore, nullptr);
+    vkDestroyFence(m_mainDevice->GetVkDevice(), m_submitFrameFence, nullptr);
 
-    m_imageAvailableSemaphores.clear();
-    m_renderFinishedSemaphores.clear();
-    m_submitFrameFences.clear();
 }
 
 

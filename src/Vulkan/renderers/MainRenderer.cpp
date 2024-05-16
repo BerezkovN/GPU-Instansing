@@ -9,7 +9,6 @@
 MainRenderer::MainRenderer(const MainRenderer::CreateDesc& desc) {
 
     m_app = desc.app;
-    m_framesInFlight = desc.framesInFlight;
     m_device = desc.device;
     m_renderPass = desc.renderPass;
     m_graphicsQueue = desc.graphicsQueue;
@@ -27,23 +26,21 @@ MainRenderer::MainRenderer(const MainRenderer::CreateDesc& desc) {
 
     std::vector<MainRenderPipeline::PipelineDescriptorSets> descriptorSets;
 
-    for (uint32_t ind = 0; ind < m_framesInFlight; ind++) {
 
-        MainRenderPipeline::PipelineDescriptorSetInfo uniformBufferObject = {
-            .buffer = m_uniformBuffers[ind]->GetVkBuffer(),
-            .offset = 0,
-            .range = m_uniformBuffers[ind]->GetBufferSize(),
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-        };
+    MainRenderPipeline::PipelineDescriptorSetInfo uniformBufferObject = {
+        .buffer = m_uniformBuffer->GetVkBuffer(),
+        .offset = 0,
+        .range = m_uniformBuffer->GetBufferSize(),
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+    };
 
-        descriptorSets.push_back({
-            .uniformBufferObject = uniformBufferObject
-        });
-    }
+    descriptorSets.push_back({
+        .uniformBufferObject = uniformBufferObject
+    });
+
 
     MainRenderPipeline::CreateDesc pipelineDesc = {
         .app = desc.app,
-        .framesInFlight = desc.framesInFlight,
         .device = desc.device,
         .renderPass = desc.renderPass,
         .fragmentShader = fragModule,
@@ -68,7 +65,7 @@ void MainRenderer::Destroy() {
 
 void MainRenderer::RecordAndSubmit(const MainRenderer::RecordDesc& desc) const {
 
-    VkCommandBuffer commandBuffer = m_graphicsCommandBuffers[desc.frameIndex];
+    VkCommandBuffer commandBuffer = m_graphicsCommandBuffer;
 
     vkResetCommandBuffer(commandBuffer, 0);
 
@@ -117,7 +114,7 @@ void MainRenderer::RecordAndSubmit(const MainRenderer::RecordDesc& desc) const {
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_mainRenderPipeline->GetVkPipeline());
 
-    this->UpdateUniformBuffers(desc.frameIndex);
+    this->UpdateUniformBuffers();
 
     // Learn about vkCmdBindVertexBuffers
     const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer() };
@@ -125,7 +122,7 @@ void MainRenderer::RecordAndSubmit(const MainRenderer::RecordDesc& desc) const {
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
-    m_mainRenderPipeline->BindDescriptors(commandBuffer, desc.frameIndex);
+    m_mainRenderPipeline->BindDescriptors(commandBuffer);
 
     vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 
@@ -163,26 +160,22 @@ void MainRenderer::RecordAndSubmit(const MainRenderer::RecordDesc& desc) const {
 
 void MainRenderer::CreateUniformBuffers() {
 
-    for (uint32_t ind = 0; ind < m_framesInFlight; ind++) {
+    GenericBuffer::Desc desc = {
+        .bufferCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size = sizeof(MainRenderPipeline::UniformBufferObject),
+            .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        },
+        .memoryProperty = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    };
 
-        GenericBuffer::Desc desc = {
-            .bufferCreateInfo = {
-                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-                .size = sizeof(MainRenderPipeline::UniformBufferObject),
-                .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-            },
-            .memoryProperty = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        };
-
-        auto uniformBuffer = std::make_unique<GenericBuffer>(m_device, desc);
-        uniformBuffer->MapMemory(uniformBuffer->GetBufferSize());
-        m_uniformBuffers.push_back(std::move(uniformBuffer));
-    }
+    m_uniformBuffer = std::make_unique<GenericBuffer>(m_device, desc);
+    m_uniformBuffer->MapMemory(m_uniformBuffer->GetBufferSize());
 
 }
 
-void MainRenderer::UpdateUniformBuffers(uint32_t currentImage) const {
+void MainRenderer::UpdateUniformBuffers() const {
 
     static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -201,17 +194,14 @@ void MainRenderer::UpdateUniformBuffers(uint32_t currentImage) const {
     ubo.proj[1][1] *= -1;
 
     // TODO: Learn about push constants
-    void* mappedUboPtr = m_uniformBuffers[currentImage]->GetMappedMemory();
+    void* mappedUboPtr = m_uniformBuffer->GetMappedMemory();
     std::memcpy(mappedUboPtr, &ubo, sizeof(ubo));
 }
 
 void MainRenderer::DestroyUniformBuffers() {
 
-    for (const auto& uniformBuffer : m_uniformBuffers) {
-        uniformBuffer->Destroy();
-    }
-
-    m_uniformBuffers.clear();
+    m_uniformBuffer->Destroy();
+    m_uniformBuffer = nullptr;
 }
 
 
@@ -259,16 +249,15 @@ void MainRenderer::DestroyCommandPools() {
 }
 
 void MainRenderer::CreateCommandBuffers() {
-    m_graphicsCommandBuffers.resize(m_framesInFlight);
-
+    
     const VkCommandBufferAllocateInfo graphicsBuffersInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = m_graphicsCommandPool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = m_framesInFlight
+        .commandBufferCount = 1
     };
 
-    VkResult result = vkAllocateCommandBuffers(m_device->GetVkDevice(), &graphicsBuffersInfo, m_graphicsCommandBuffers.data());
+    VkResult result = vkAllocateCommandBuffers(m_device->GetVkDevice(), &graphicsBuffersInfo, &m_graphicsCommandBuffer);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[App] Could not allocate graphics command buffers: " + std::to_string(result));
     }
@@ -291,10 +280,9 @@ void MainRenderer::DestroyCommandBuffers() {
         m_transferCommandPool.has_value() ? m_transferCommandPool.value() : m_graphicsCommandPool,
         1, &m_transferCommandBuffer);
 
-    vkFreeCommandBuffers(m_device->GetVkDevice(), m_graphicsCommandPool,
-        static_cast<uint32_t>(m_graphicsCommandBuffers.size()), m_graphicsCommandBuffers.data());
+    vkFreeCommandBuffers(m_device->GetVkDevice(), m_graphicsCommandPool, 1, &m_graphicsCommandBuffer);
 
-    m_graphicsCommandBuffers.clear();
+    m_graphicsCommandBuffer = VK_NULL_HANDLE;
     m_transferCommandBuffer = VK_NULL_HANDLE;
 
 }

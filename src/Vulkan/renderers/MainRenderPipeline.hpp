@@ -45,7 +45,6 @@ public:
 	struct CreateDesc
 	{
 		const App* app;
-		uint32_t framesInFlight;
 		const Device* device;
 		const IRenderPass* renderPass;
 		VkShaderModule fragmentShader;
@@ -56,7 +55,7 @@ public:
 	MainRenderPipeline(const MainRenderPipeline::CreateDesc& desc);
 	void Destroy() override;
 
-	void BindDescriptors(VkCommandBuffer buffer, uint32_t frameIndex) override;
+	void BindDescriptors(VkCommandBuffer buffer) override;
 	
 	VkPipeline GetVkPipeline() const override;
 	VkPipelineLayout GetVkPipelineLayout() const override;
@@ -84,7 +83,6 @@ private:
 
 
 	const App* m_app;
-	uint32_t m_framesInFlight;
 	const Device* m_device;
 	const IRenderPass* m_renderPass;
 

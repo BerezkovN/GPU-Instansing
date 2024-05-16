@@ -9,7 +9,6 @@ class IRenderer
 public:
 	struct RecordDesc
 	{
-		uint32_t frameIndex;
 		VkRect2D renderArea;
 		VkFramebuffer framebuffer;
 
