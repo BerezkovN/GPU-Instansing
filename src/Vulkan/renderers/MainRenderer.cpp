@@ -4,7 +4,7 @@
 #include "../pch.hpp"
 #include "../App.hpp"
 #include "../helpers/buffers/LocalBuffer.hpp"
-
+#include "../helpers/Shader.hpp"
 
 MainRenderer::MainRenderer(const MainRenderer::CreateDesc& desc) {
 
@@ -20,32 +20,19 @@ MainRenderer::MainRenderer(const MainRenderer::CreateDesc& desc) {
     this->CreateIndexBuffer();
     this->CreateUniformBuffers();
 
-    m_shaderManager = std::make_unique<ShaderManager>(m_device);
-    const VkShaderModule fragModule = m_shaderManager->LoadShader("shaders/triangle.frag.spv");
-    const VkShaderModule vertModule = m_shaderManager->LoadShader("shaders/triangle.vert.spv");
+    m_vertexShader = std::make_unique<Shader>(m_device, "shaders/triangle.vert.spv", Shader::Type::Vertex);
+    m_fragmentShader = std::make_unique<Shader>(m_device, "shaders/triangle.frag.spv", Shader::Type::Fragment);
 
-    std::vector<MainRenderPipeline::PipelineDescriptorSets> descriptorSets;
+    m_shaderLayout = std::make_unique<ShaderLayout>(m_device, m_vertexShader.get(), m_fragmentShader.get());
 
-
-    MainRenderPipeline::PipelineDescriptorSetInfo uniformBufferObject = {
-        .buffer = m_uniformBuffer->GetVkBuffer(),
-        .offset = 0,
-        .range = m_uniformBuffer->GetBufferSize(),
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-    };
-
-    descriptorSets.push_back({
-        .uniformBufferObject = uniformBufferObject
-    });
-
+    const auto id = m_shaderLayout->GetDescriptorID("UniformBufferObject");
+    m_shaderLayout->AttachBuffer(id, m_uniformBuffer.get(), 0, m_uniformBuffer->GetBufferSize());
 
     MainRenderPipeline::CreateDesc pipelineDesc = {
         .app = desc.app,
         .device = desc.device,
         .renderPass = desc.renderPass,
-        .fragmentShader = fragModule,
-        .vertexShader = vertModule,
-        .descriptorSetWrites = descriptorSets
+        .shaderLayout = m_shaderLayout.get()
     };
     m_mainRenderPipeline = std::make_unique<MainRenderPipeline>(pipelineDesc);
 
@@ -54,7 +41,9 @@ MainRenderer::MainRenderer(const MainRenderer::CreateDesc& desc) {
 void MainRenderer::Destroy() {
 
     m_mainRenderPipeline->Destroy();
-    m_shaderManager->DestroyAllShaders();
+	m_vertexShader->Destroy();
+    m_fragmentShader->Destroy();
+    m_shaderLayout->Destroy();
 
     this->DestroyUniformBuffers();
     this->DestroyIndexBuffer();
@@ -78,7 +67,7 @@ void MainRenderer::RecordAndSubmit(const MainRenderer::RecordDesc& desc) const {
 
     VkResult result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
     if (result != VK_SUCCESS) {
-        throw std::runtime_error("[App] Could not begin command buffer: " + std::to_string(result));
+        throw std::runtime_error("[MainRenderer] Could not begin command buffer: " + std::to_string(result));
     }
 
     VkClearValue clearValue = {
@@ -122,7 +111,7 @@ void MainRenderer::RecordAndSubmit(const MainRenderer::RecordDesc& desc) const {
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
-    m_mainRenderPipeline->BindDescriptors(commandBuffer);
+    m_shaderLayout->BindDescriptors(commandBuffer);
 
     vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 
@@ -163,7 +152,7 @@ void MainRenderer::CreateUniformBuffers() {
     GenericBuffer::Desc desc = {
         .bufferCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = sizeof(MainRenderPipeline::UniformBufferObject),
+            .size = sizeof(MainRenderer::UniformBufferObject),
             .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         },
@@ -180,12 +169,12 @@ void MainRenderer::UpdateUniformBuffers() const {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    float time = std::chrono::duration<float>(currentTime - startTime).count();
 
     int width, height;
     m_app->GetScreenSize(width, height);
 
-    MainRenderPipeline::UniformBufferObject ubo = {
+    MainRenderer::UniformBufferObject ubo = {
         .model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
         .view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
         .proj = glm::perspective(glm::radians(45.0f), static_cast<float>(width) / static_cast<float>(height), 0.1f, 10.0f)

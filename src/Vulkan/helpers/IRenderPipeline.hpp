@@ -7,11 +7,7 @@ class IRenderPipeline
 {
 public:
 	virtual ~IRenderPipeline() = default;
-
 	virtual void Destroy() = 0;
 
-	virtual void BindDescriptors(VkCommandBuffer buffer) = 0;
-
-	virtual VkPipeline GetVkPipeline() const = 0;
-	virtual VkPipelineLayout GetVkPipelineLayout() const = 0;
+	[[nodiscard]] virtual VkPipeline GetVkPipeline() const = 0;
 };

@@ -12,7 +12,6 @@ struct Config {
     };
 
     std::optional<DeviceID> mainDeviceID{  };
-    VkPhysicalDeviceType vkRequiredDeviceType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 
     VkFormat vkPreferredSurfaceFormat = VK_FORMAT_B8G8R8A8_SRGB;
     VkColorSpaceKHR vkPreferredSurfaceColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;

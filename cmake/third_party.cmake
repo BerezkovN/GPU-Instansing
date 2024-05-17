@@ -7,6 +7,8 @@ set(IMGUI_DIR "${THIRD_PARTY_DIR}/imgui")
 set(GLM_DIR "${THIRD_PARTY_DIR}/glm")
 set(SLANG_DIR "${THIRD_PARTY_DIR}/slang")
 set(SPDLOG_DIR "${THIRD_PARTY_DIR}/spdlog")
+set(STB_IMAGE_DIR "${THIRD_PARTY_DIR}/stb_image")
+set(SPIRV_CROSS_DIR "${THIRD_PARTY_DIR}/SPIRV-Cross")
 
 # Slang and GFX
 set(SLANG_ENABLE_EXAMPLES OFF)
@@ -14,18 +16,6 @@ set(SLANG_LIB_TYPE STATIC)
 add_subdirectory(${SLANG_DIR})
 set(SLANG_INCLUDE_DIRS ${SLANG_DIR})
 set(SLANG_LIBRARIES core slang gfx gfx-util platform)
-
-function(print_sources target_name)
-    get_target_property(target_sources ${target_name} SOURCES)
-    if(NOT target_sources)
-        message(WARNING "Target ${target_name} has no sources.")
-        return()
-    endif()
-    message("Sources of target ${target_name}:")
-    foreach(source ${target_sources})
-        message("${source}")
-    endforeach()
-endfunction()
 
 # Vulkan
 if (NOT TARGET Vulkan::Headers)
@@ -78,3 +68,24 @@ set(GLM_LIBRARIES glm::glm)
 add_subdirectory(${SPDLOG_DIR})
 set(SPDLOG_INCLUDE_DIRS "${SPDLOG_DIR}/include")
 set(SPDLOG_LIBRARIES spdlog::spdlog)
+
+# SBI_IMAGE
+add_library(stb_image INTERFACE)
+target_include_directories(stb_image INTERFACE "${STB_IMAGE_DIR}/stb_image.h")
+set(STB_IMAGE_INCLUDE_DIRS "${STB_IMAGE_DIR}")
+set(STB_IMAGE_LIBRARIES stb_image)
+
+# SPIRV-Cross
+set(SPIRV_CROSS_ENABLE_GLSL     OFF CACHE BOOL "Enable GLSL support.")
+set(SPIRV_CROSS_ENABLE_REFLECT  OFF CACHE BOOL "Disable JSON target support.")
+set(SPIRV_CROSS_ENABLE_HLSL     OFF CACHE BOOL "Disable HLSL target support.")
+set(SPIRV_CROSS_ENABLE_MSL      OFF CACHE BOOL "Disable MSL target support.")
+set(SPIRV_CROSS_ENABLE_CPP      OFF CACHE BOOL "Disable C++ target support.")
+
+set(SPIRV_CROSS_CLI             OFF CACHE BOOL "Build the CLI binary. Requires SPIRV_CROSS_STATIC.")
+set(SPIRV_CROSS_ENABLE_TESTS    OFF CACHE BOOL "Enable SPIRV-Cross tests.")
+set(SPIRV_CROSS_ENABLE_C_API    OFF CACHE BOOL "Enable C API wrapper support in static library.")
+
+add_subdirectory(${SPIRV_CROSS_DIR})
+set(SPIRV_CROSS_INCLUDE_DIRS "${SPRIV_CROSS_DIR}/include")
+set(SPIRV_CROSS_LIBRARIES spirv-cross-core)

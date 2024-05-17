@@ -7,7 +7,6 @@
 
 #include "Config.hpp"
 #include "helpers/Device.hpp"
-#include "helpers/ShaderManager.hpp"
 #include "helpers/DeviceQueue.hpp"
 #include "helpers/IRenderer.hpp"
 #include "helpers/Surface.hpp"

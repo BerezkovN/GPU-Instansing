@@ -23,7 +23,15 @@ public:
 	void CopyFromBuffer(VkCommandBuffer commandBuffer, const GenericBuffer* srcBuffer, const VkBufferCopy& bufferCopyInfo) const;
 
 	[[nodiscard]] void* GetMappedMemory() const;
+
+	/**
+	 * Amount of memory in bytes that system actually allocated
+	 */
 	[[nodiscard]] VkDeviceSize GetAllocatedMemorySize() const;
+
+	/**
+	 * Amount of memory in bytes that we asked for when creating the buffer.
+	 */
 	[[nodiscard]] VkDeviceSize GetBufferSize() const;
 	[[nodiscard]] VkBuffer GetVkBuffer() const;
 	[[nodiscard]] VkDeviceMemory GetVkDeviceMemory() const;

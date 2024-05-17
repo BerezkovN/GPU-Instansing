@@ -14,6 +14,8 @@ target_include_directories(VulkanGPUInstancing PUBLIC
 	${VULKAN_INCLUDE_DIRS}
 	${IMGUI_INCLUDE_DIRS}
 	${SPDLOG_INCLUDE_DIRS}
+	${STB_IMAGE_INCLUDE_DIRS}
+	${SPIRV_CROSS_INCLUDE_DIRS}
 )
 
 target_link_libraries(VulkanGPUInstancing PUBLIC
@@ -21,7 +23,8 @@ target_link_libraries(VulkanGPUInstancing PUBLIC
 	${GLFW_LIBRARIES}
 	${VULKAN_LIBRARIES}
 	${IMGUI_LIBRARIES}
-	${SPDLOG_LIBARIES}
+	${SPDLOG_LIBRARIES}
+	${SPIRV_CROSS_LIBRARIES}
 )
 
 target_compile_definitions(VulkanGPUInstancing PRIVATE IDE_ASSET_FOLDER="${CMAKE_CURRENT_SOURCE_DIR}/assets")

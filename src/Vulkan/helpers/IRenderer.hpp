@@ -1,8 +1,6 @@
 #pragma once
 
 #include <volk.h>
-#include <vector>
-
 
 class IRenderer
 {

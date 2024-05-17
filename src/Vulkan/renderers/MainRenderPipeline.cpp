@@ -2,7 +2,6 @@
 
 #include "../App.hpp"
 #include "../pch.hpp"
-#include "../helpers/buffers/LocalBuffer.hpp"
 
 
 MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& desc) {
@@ -10,26 +9,8 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
     m_app = desc.app;
     m_device = desc.device;
     m_renderPass = desc.renderPass;
-
-    // TODO: Use pUseSpecializationInfo for GPU Instancing variants.
-    const VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .module = desc.vertexShader,
-        .pName = "main",
-        .pSpecializationInfo = nullptr
-    };
-
-    const VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .module = desc.fragmentShader,
-        .pName = "main",
-        .pSpecializationInfo = nullptr
-    };
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-
+    m_shaderLayout = desc.shaderLayout;
+    
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
@@ -42,28 +23,15 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
     };
 
     VkVertexInputBindingDescription bindingDescription = {
-        .binding = 0,
-        .stride = sizeof(Vertex),
-        // TODO: Instancing
-        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+	    .binding = 0,
+	    .stride = sizeof(Vertex),
+	    // TODO: Instancing
+	    .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
     };
 
-    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-    attributeDescriptions.push_back({
-        .location = 0,
-        .binding = 0,
-        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-        .offset = 0
-        });
+    const auto attributeDescriptions = this->GetAttributes();
 
-    attributeDescriptions.push_back({
-        .location = 1,
-        .binding = 0,
-        .format = VK_FORMAT_R8G8B8A8_UNORM,
-        .offset = offsetof(Vertex, color)
-        });
-
-    VkPipelineVertexInputStateCreateInfo vertexInputStateInfo = {
+    const VkPipelineVertexInputStateCreateInfo vertexInputStateInfo = {
 	    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 	    .vertexBindingDescriptionCount = 1,
 	    .pVertexBindingDescriptions = &bindingDescription,
@@ -122,23 +90,12 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
         .pAttachments = &blendAttachmentState,
     };
 
-    this->CreateDescriptorSetLayout();
-    // TODO: Learn more about this
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 1,
-        .pSetLayouts = &m_descriptorSetLayout
-    };
-
-    VkResult result = vkCreatePipelineLayout(m_device->GetVkDevice(), & pipelineLayoutCreateInfo, nullptr, & m_pipelineLayout);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[MainRenderPipeline] Could not create pipeline layout: " + std::to_string(result));
-    }
+    std::vector<VkPipelineShaderStageCreateInfo> stages = m_shaderLayout->GetVkShaderStages();
 
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .stageCount = 2,
-        .pStages = shaderStages,
+        .stageCount = static_cast<uint32_t>(stages.size()),
+        .pStages = stages.data(),
         .pVertexInputState = &vertexInputStateInfo,
         .pInputAssemblyState = &inputAssemblyStateCreateInfo,
         .pViewportState = &viewportCreateInfo,
@@ -147,7 +104,7 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
         .pDepthStencilState = nullptr,
         .pColorBlendState = &blendStateCreateInfo,
         .pDynamicState = &dynamicStateCreateInfo,
-        .layout = m_pipelineLayout,
+        .layout = m_shaderLayout->GetVkPipelineLayout(),
         .renderPass = desc.renderPass->GetVkRenderPass(),
         .subpass = 0,
         // TODO: Learn more about this
@@ -155,133 +112,40 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
         .basePipelineIndex = -1
     };
 
-    result = vkCreateGraphicsPipelines(m_device->GetVkDevice(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &m_pipeline);
+    const VkResult result = vkCreateGraphicsPipelines(m_device->GetVkDevice(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &m_pipeline);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[MainRenderPipeline] Could not create graphics pipeline: " + std::to_string(result));
     }
 
     spdlog::info("[MainRenderPipeline] Graphics pipeline was created successfully!");
-
-    this->CreateDescriptorPool();
-    this->CreateDescriptorSets(desc.descriptorSetWrites);
 }
 
 void MainRenderPipeline::Destroy() {
 
-    this->DestroyDescriptorPool();
-    this->DestroyDescriptorSetLayout();
-
 	vkDestroyPipeline(m_device->GetVkDevice(), m_pipeline, nullptr);
-	vkDestroyPipelineLayout(m_device->GetVkDevice(), m_pipelineLayout, nullptr);
-}
-
-void MainRenderPipeline::BindDescriptors(VkCommandBuffer buffer) {
-    vkCmdBindDescriptorSets(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, DescriptorSetCount, m_descriptorSets[0].indexed.data(), 0, nullptr);
 }
 
 VkPipeline MainRenderPipeline::GetVkPipeline() const {
 	return m_pipeline;
 }
 
-VkPipelineLayout MainRenderPipeline::GetVkPipelineLayout() const {
-    return m_pipelineLayout;
-}
+std::vector<VkVertexInputAttributeDescription> MainRenderPipeline::GetAttributes() {
 
-void MainRenderPipeline::CreateDescriptorSetLayout() {
-    VkDescriptorSetLayoutBinding uboLayoutBinding = {
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+    attributeDescriptions.push_back({
+        .location = 0,
         .binding = 0,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .pImmutableSamplers = nullptr
-    };
+        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .offset = 0
+    });
 
-    VkDescriptorSetLayoutCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        // TODO: Learn more about this
-        .flags = 0,
-        .bindingCount = 1,
-        .pBindings = &uboLayoutBinding
-    };
+    attributeDescriptions.push_back({
+        .location = 1,
+        .binding = 0,
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .offset = offsetof(Vertex, color)
+    });
 
-
-    const VkResult result = vkCreateDescriptorSetLayout(m_device->GetVkDevice(), &createInfo, nullptr, &m_descriptorSetLayout);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[MainRenderPipeline] Could not create descriptor set layout");
-    }
-}
-
-void MainRenderPipeline::DestroyDescriptorSetLayout() {
-    vkDestroyDescriptorSetLayout(m_device->GetVkDevice(), m_descriptorSetLayout, nullptr);
-    m_descriptorSetLayout = VK_NULL_HANDLE;
-}
-
-
-void MainRenderPipeline::CreateDescriptorPool() {
-
-    VkDescriptorPoolSize poolSize = {
-        // TODO: Learn more
-        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1
-    };
-
-    const VkDescriptorPoolCreateInfo poolCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = DescriptorSetCount,
-        .poolSizeCount = 1,
-        .pPoolSizes = &poolSize,
-    };
-
-    const VkResult result = vkCreateDescriptorPool(m_device->GetVkDevice(), &poolCreateInfo, nullptr, &m_descriptorPool);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[MainRenderPipeline] Could not create descriptor pool");
-    }
-}
-
-void MainRenderPipeline::DestroyDescriptorPool() {
-
-    // Should automatically get cleaned when destroying descriptor pool.
-	m_descriptorSets.clear();
-
-    vkDestroyDescriptorPool(m_device->GetVkDevice(), m_descriptorPool, nullptr);
-    m_descriptorPool = VK_NULL_HANDLE;
-
-}
-
-void MainRenderPipeline::CreateDescriptorSets(const std::vector<PipelineDescriptorSets>& descriptorSetWrites) {
-
-    m_descriptorSets.resize(descriptorSetWrites.size());
-
-    const VkDescriptorSetAllocateInfo allocateInfo = {
-	    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-	    .descriptorPool = m_descriptorPool,
-	    .descriptorSetCount = DescriptorSetCount,
-	    .pSetLayouts = &m_descriptorSetLayout
-    };
-
-    const VkResult result = vkAllocateDescriptorSets(m_device->GetVkDevice(), &allocateInfo, m_descriptorSets[0].indexed.data());
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[MainRenderPipeline] Could not allocate descriptor sets");
-    }
-
-    VkDescriptorBufferInfo bufferInfo = {
-	    .buffer = descriptorSetWrites[0].uniformBufferObject.buffer,
-	    .offset = descriptorSetWrites[0].uniformBufferObject.offset,
-	    .range = descriptorSetWrites[0].uniformBufferObject.range
-    };
-
-    VkWriteDescriptorSet writeDescriptorSet = {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = m_descriptorSets[0].named.uniformBufferObject,
-        .dstBinding = 0,
-        .dstArrayElement = 0,
-        .descriptorCount = 1,
-        .descriptorType = descriptorSetWrites[0].uniformBufferObject.descriptorType,
-        .pBufferInfo = &bufferInfo
-    };
-
-    vkUpdateDescriptorSets(m_device->GetVkDevice(), 1, &writeDescriptorSet, 0, nullptr);
-
-
+    return attributeDescriptions;
 }
 

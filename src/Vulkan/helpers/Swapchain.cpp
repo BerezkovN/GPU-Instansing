@@ -1,6 +1,7 @@
 #include "Swapchain.hpp"
 
 #include "../App.hpp"
+#include "../pch.hpp"
 
 Swapchain::Swapchain(const App* app, const Surface* surface, const Device* device) {
 
@@ -81,7 +82,7 @@ void Swapchain::Initialize() {
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = presentMode,
         .clipped = VK_TRUE,
-        .oldSwapchain = VK_NULL_HANDLE
+        .oldSwapchain = m_swapChain
     };
 
     // TODO: implement separation of presentation and graphics queue.

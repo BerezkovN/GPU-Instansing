@@ -3,9 +3,12 @@
 #include "../helpers/IRenderer.hpp"
 #include "../helpers/IRenderPipeline.hpp"
 #include "../helpers/IRenderPass.hpp"
-#include "../helpers/ShaderManager.hpp"
+#include "../helpers/Shader.hpp"
+#include "../helpers/ShaderLayout.hpp"
 #include "../helpers/Device.hpp"
 #include "../helpers/buffers/GenericBuffer.hpp"
+
+#include <glm/mat4x4.hpp>
 
 class MainRenderer : public IRenderer
 {
@@ -23,6 +26,14 @@ public:
 	void Destroy() override;
 	void RecordAndSubmit(const MainRenderer::RecordDesc& desc) const override;
 private:
+
+	struct UniformBufferObject
+	{
+		// Beware of alignment!
+		glm::mat4 model;
+		glm::mat4 view;
+		glm::mat4 proj;
+	};
 
 
 	void CreateUniformBuffers();
@@ -46,7 +57,9 @@ private:
 	const Device* m_device;
 	const IRenderPass* m_renderPass;
 
-	std::unique_ptr<ShaderManager> m_shaderManager;
+	std::unique_ptr<Shader> m_fragmentShader;
+	std::unique_ptr<Shader> m_vertexShader;
+	std::unique_ptr<ShaderLayout> m_shaderLayout;
 
 	const DeviceQueue* m_graphicsQueue;
 	VkCommandPool m_graphicsCommandPool;

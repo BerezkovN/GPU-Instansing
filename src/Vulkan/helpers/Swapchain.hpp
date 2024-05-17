@@ -40,7 +40,7 @@ private:
     const Surface* m_surface;
     const Device* m_device;
 
-    VkSwapchainKHR m_swapChain;
+    VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
     std::vector<VkImage> m_swapChainImages;
     std::vector<VkImageView> m_swapChainImageViews;
 

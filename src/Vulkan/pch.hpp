@@ -2,9 +2,11 @@
 
 #include <iostream>
 #include <exception>
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <chrono>
+#include <numeric>
 
 // Using volk instead of vulkan/vulkan.h
 #include <volk.h>

@@ -398,7 +398,6 @@ FodyWeavers.xsd
 *.sln.iml
 
 out/
-*.spv
 
 # CLion
 .idea/
