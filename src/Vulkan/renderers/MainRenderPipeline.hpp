@@ -1,12 +1,12 @@
 #pragma once
 
 #include "../helpers/IRenderPipeline.hpp"
-#include "../helpers/IRenderPass.hpp"
-#include "../helpers/Device.hpp"
-#include "../helpers/ShaderLayout.hpp"
 
 #include <glm/vec3.hpp>
 #include <glm/vec2.hpp>
+
+class Context;
+class ShaderLayout;
 
 class MainRenderPipeline : public IRenderPipeline
 {
@@ -19,15 +19,8 @@ public:
 		glm::vec2 uv;
 	};
 
-	struct CreateDesc
-	{
-		const App* app;
-		const Device* device;
-		const IRenderPass* renderPass;
-		const ShaderLayout* shaderLayout;
-	};
 
-	MainRenderPipeline(const MainRenderPipeline::CreateDesc& desc);
+	MainRenderPipeline(const Context* context, const ShaderLayout* shaderLayout);
 	void Destroy() override;
 
 	[[nodiscard]] VkPipeline GetVkPipeline() const override;
@@ -36,9 +29,7 @@ private:
 
 	std::vector<VkVertexInputAttributeDescription> GetAttributes();
 
-	const App* m_app;
-	const Device* m_device;
-	const IRenderPass* m_renderPass;
+	const Context* m_context;
 	const ShaderLayout* m_shaderLayout;
 
 	VkPipeline m_pipeline;

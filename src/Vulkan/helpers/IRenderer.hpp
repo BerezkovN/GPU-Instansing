@@ -2,21 +2,22 @@
 
 #include <volk.h>
 
+#include "IRenderPass.hpp"
+
 class IRenderer
 {
 public:
 	struct RecordDesc
 	{
 		VkRect2D renderArea;
-		VkFramebuffer framebuffer;
 
-		VkSemaphore imageAvailableSemaphore;
-		VkSemaphore renderFinishedSemaphore;
-		VkFence submitFrameFence;
+		VkCommandBuffer commandBuffer;
+		const IRenderPass* renderPass;
+		VkFramebuffer framebuffer;
 	};
 
 	virtual ~IRenderer() = default;
 	virtual void Destroy() = 0;
 
-	virtual void RecordAndSubmit(const IRenderer::RecordDesc& desc) const = 0;
+	virtual void Record(const IRenderer::RecordDesc& desc) const = 0;
 };

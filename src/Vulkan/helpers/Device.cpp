@@ -1,10 +1,12 @@
 #include "Device.hpp"
 
 #include "../pch.hpp"
-#include "../App.hpp"
+
+#include "Context.hpp"
+#include "Surface.hpp"
+
 #include "VkHelper.hpp"
 
-#include <optional>
 
 DeviceID Device::CalculateID(const VkPhysicalDeviceProperties& deviceProperties) {
 
@@ -17,7 +19,7 @@ DeviceID Device::CalculateID(const VkPhysicalDeviceProperties& deviceProperties)
 }
 
 
-Device::Device(const App* app, VkPhysicalDevice physicalDevice) {
+Device::Device(const Context* context, VkPhysicalDevice physicalDevice) {
 
     static int deviceCount = 0;
     deviceCount += 1;
@@ -27,7 +29,7 @@ Device::Device(const App* app, VkPhysicalDevice physicalDevice) {
         throw std::runtime_error("[Device] The current implementation does not support multiple devices.");
     }
 
-    m_app = app;
+    m_context = context;
     m_physicalDevice = physicalDevice;
 
     vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
@@ -64,18 +66,18 @@ Device::Device(const App* app, VkPhysicalDevice physicalDevice) {
     m_logicalDevice = VK_NULL_HANDLE;
 }
 
-std::unique_ptr<Device> Device::FindDevice(const App* app, DeviceID deviceID) {
+std::unique_ptr<Device> Device::FindDevice(const Context* context, DeviceID deviceID) {
 
     uint32_t deviceCount;
 
-    vkEnumeratePhysicalDevices(app->GetVkInstance(), &deviceCount, nullptr);
+    vkEnumeratePhysicalDevices(context->GetVkInstance(), &deviceCount, nullptr);
 
     if (deviceCount == 0) {
         throw std::runtime_error("[Device] No GPUs were found");
     }
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(app->GetVkInstance(), &deviceCount, devices.data());
+    vkEnumeratePhysicalDevices(context->GetVkInstance(), &deviceCount, devices.data());
 
     size_t chosenDeviceIndex = -1;
 
@@ -98,7 +100,7 @@ std::unique_ptr<Device> Device::FindDevice(const App* app, DeviceID deviceID) {
     }
 
     // Hacky way to create unique pointer with private constructor.
-    return std::unique_ptr<Device>(new Device(app, devices[chosenDeviceIndex]));
+    return std::unique_ptr<Device>(new Device(context, devices[chosenDeviceIndex]));
 }
 
 
@@ -199,8 +201,8 @@ void Device::Initialize() {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .queueCreateInfoCount = static_cast<uint32_t>(graphicsQueueInfos.size()),
             .pQueueCreateInfos = graphicsQueueInfos.data(),
-            .enabledExtensionCount = static_cast<uint32_t>(m_app->GetConfig()->vkDeviceExtensions.size()),
-            .ppEnabledExtensionNames = m_app->GetConfig()->vkDeviceExtensions.data(),
+            .enabledExtensionCount = static_cast<uint32_t>(m_context->GetConfig()->vkDeviceExtensions.size()),
+            .ppEnabledExtensionNames = m_context->GetConfig()->vkDeviceExtensions.data(),
             .pEnabledFeatures = &deviceFeatures
     };
 

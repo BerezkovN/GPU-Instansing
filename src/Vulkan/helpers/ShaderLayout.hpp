@@ -1,12 +1,17 @@
 #pragma once
 
 #include <vector>
+#include <string>
+#include <optional>
+#include <unordered_map>
+#include <spirv_cross.hpp>
 
-#include "Shader.hpp"
-#include "Device.hpp"
+#include <volk.h>
 
-#include "./buffers/GenericBuffer.hpp"
-#include "./textures/Sampler.hpp"
+class Device;
+class Shader;
+class GenericBuffer;
+class Sampler;
 
 class ShaderLayout
 {

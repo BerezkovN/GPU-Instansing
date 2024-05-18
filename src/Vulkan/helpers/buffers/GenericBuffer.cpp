@@ -1,12 +1,11 @@
 #include "GenericBuffer.hpp"
 
-#include <stdexcept>
-#include <spdlog/spdlog.h>
-#include <spdlog/fmt/bin_to_hex.h>
+#include "../../pch.hpp"
+#include "../Context.hpp"
 
-GenericBuffer::GenericBuffer(const Device* device, const GenericBuffer::Desc& desc) {
+GenericBuffer::GenericBuffer(const Context* context, const GenericBuffer::Desc& desc) {
 
-    m_device = device;
+    m_context = context;
 
     this->CreateBuffer(desc.bufferCreateInfo);
     this->AllocateBuffer(desc.memoryProperty);
@@ -14,8 +13,8 @@ GenericBuffer::GenericBuffer(const Device* device, const GenericBuffer::Desc& de
 
 void GenericBuffer::Destroy() {
 
-    vkFreeMemory(m_device->GetVkDevice(), m_bufferMemory, nullptr);
-    vkDestroyBuffer(m_device->GetVkDevice(), m_buffer, nullptr);
+    vkFreeMemory(m_context->GetDevice()->GetVkDevice(), m_bufferMemory, nullptr);
+    vkDestroyBuffer(m_context->GetDevice()->GetVkDevice(), m_buffer, nullptr);
 
     m_bufferMemory = VK_NULL_HANDLE;
     m_buffer = VK_NULL_HANDLE;
@@ -29,12 +28,12 @@ void* GenericBuffer::MapMemory(const VkDeviceSize memorySize) {
     if (m_mappedMemory != nullptr) {
         throw std::runtime_error("[GenericBuffer] Memory is already mapped");
     }
-    vkMapMemory(m_device->GetVkDevice(), m_bufferMemory, 0, memorySize, 0, &m_mappedMemory);
+    vkMapMemory(m_context->GetDevice()->GetVkDevice(), m_bufferMemory, 0, memorySize, 0, &m_mappedMemory);
     return m_mappedMemory;
 }
 
 void GenericBuffer::UnmapMemory() {
-    vkUnmapMemory(m_device->GetVkDevice(), m_bufferMemory);
+    vkUnmapMemory(m_context->GetDevice()->GetVkDevice(), m_bufferMemory);
     m_mappedMemory = nullptr;
 }
 
@@ -78,9 +77,9 @@ VkDeviceMemory GenericBuffer::GetVkDeviceMemory() const {
     return m_bufferMemory;
 }
 
-GenericBuffer::GenericBuffer(const Device* device) {
+GenericBuffer::GenericBuffer(const Context* context) {
 
-	m_device = device;
+	m_context = context;
 
     m_buffer = VK_NULL_HANDLE;
     m_bufferMemory = VK_NULL_HANDLE;
@@ -92,7 +91,7 @@ void GenericBuffer::CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo) {
         throw std::runtime_error("[GenericBuffer] Trying to create a buffer with size of 0");
     }
 
-	const VkResult result = vkCreateBuffer(m_device->GetVkDevice(), &bufferCreateInfo, nullptr, &m_buffer);
+	const VkResult result = vkCreateBuffer(m_context->GetDevice()->GetVkDevice(), &bufferCreateInfo, nullptr, &m_buffer);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[GenericBuffer] Could not create buffer");
     }
@@ -103,7 +102,7 @@ void GenericBuffer::CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo) {
 void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryProperty) {
 
     VkMemoryRequirements memoryRequirements;
-    vkGetBufferMemoryRequirements(m_device->GetVkDevice(), m_buffer, &memoryRequirements);
+    vkGetBufferMemoryRequirements(m_context->GetDevice()->GetVkDevice(), m_buffer, &memoryRequirements);
 
     const VkMemoryAllocateInfo memoryAllocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -113,18 +112,18 @@ void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryProperty) {
     };
 
     // TODO: Learn about VMA
-    const VkResult result = vkAllocateMemory(m_device->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_bufferMemory);
+    const VkResult result = vkAllocateMemory(m_context->GetDevice()->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_bufferMemory);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[GenericBuffer] Could not allocate memory for the vertex buffer");
     }
 
     m_allocatedMemorySize = memoryRequirements.size;
-    vkBindBufferMemory(m_device->GetVkDevice(), m_buffer, m_bufferMemory, 0);
+    vkBindBufferMemory(m_context->GetDevice()->GetVkDevice(), m_buffer, m_bufferMemory, 0);
 }
 
 uint32_t GenericBuffer::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
     VkPhysicalDeviceMemoryProperties memoryProperties;
-    vkGetPhysicalDeviceMemoryProperties(m_device->GetVkPhysicalDevice(), &memoryProperties);
+    vkGetPhysicalDeviceMemoryProperties(m_context->GetDevice()->GetVkPhysicalDevice(), &memoryProperties);
     
     for (uint32_t ind = 0; ind < memoryProperties.memoryTypeCount; ind++) {
         if (typeFilter & (1 << ind) && (memoryProperties.memoryTypes[ind].propertyFlags & properties)) {

@@ -2,6 +2,11 @@
 
 #include "../pch.hpp"
 
+#include "./buffers/GenericBuffer.hpp"
+#include "./textures/Sampler.hpp"
+#include "Shader.hpp"
+#include "Device.hpp"
+
 ShaderLayout::ShaderLayout(const Device* device, const Shader* vertexShader, const Shader* fragmentShader) {
 
     m_device = device;

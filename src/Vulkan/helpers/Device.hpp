@@ -4,20 +4,21 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <volk.h>
 
-#include "Surface.hpp"
 #include "DeviceQueue.hpp"
 
-typedef size_t DeviceID;
+class Context;
+class Surface;
 
-class App;
+typedef size_t DeviceID;
 
 class Device {
 
 	/**
 	 * Device can only be created through factory methods.
 	 */
-	Device(const App* app, VkPhysicalDevice physicalDevice);
+	Device(const Context* context, VkPhysicalDevice physicalDevice);
 
 public:
 
@@ -31,7 +32,7 @@ public:
     static DeviceID CalculateID(const VkPhysicalDeviceProperties& deviceProperties);
 
     // Factory
-    static std::unique_ptr<Device> FindDevice(const App* app, DeviceID deviceID);
+    static std::unique_ptr<Device> FindDevice(const Context* app, DeviceID deviceID);
 
     void Destroy();
 
@@ -56,7 +57,7 @@ private:
     uint32_t FindGraphicsQueueFamilyIndex(const Surface* surface) const;
 	uint32_t FindTransferQueueFamilyIndex() const;
 
-    const App* m_app;
+    const Context* m_context;
 
     VkPhysicalDevice m_physicalDevice;
     VkPhysicalDeviceProperties m_physicalDeviceProperties;

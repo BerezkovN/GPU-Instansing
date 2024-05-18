@@ -1,11 +1,14 @@
 #include "Swapchain.hpp"
 
-#include "../App.hpp"
 #include "../pch.hpp"
 
-Swapchain::Swapchain(const App* app, const Surface* surface, const Device* device) {
+#include "Context.hpp"
+#include "Device.hpp"
+#include "Surface.hpp"
 
-    m_app = app;
+Swapchain::Swapchain(const Context* context, const Surface* surface, const Device* device) {
+
+    m_context = context;
     m_surface = surface;
     m_device = device;
 
@@ -64,15 +67,15 @@ void Swapchain::Initialize() {
         printedInformationOnce = true;
     }
 
-    if (m_app->GetSwapchainImageCount() > capabilities.surfaceCapabilities.maxImageCount) {
-        spdlog::error("[Swapchain] The device doesn't support swap chain image count of {}", m_app->GetSwapchainImageCount());
-        m_app->SetSwapchainImageCount(capabilities.surfaceCapabilities.maxImageCount);
+    if (m_context->GetSwapchainImageCount() > capabilities.surfaceCapabilities.maxImageCount) {
+        spdlog::error("[Swapchain] The device doesn't support swap chain image count of {}", m_context->GetSwapchainImageCount());
+        m_context->SetSwapchainImageCount(capabilities.surfaceCapabilities.maxImageCount);
     }
 
     VkSwapchainCreateInfoKHR createInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = m_surface->GetVkSurface(),
-        .minImageCount = m_app->GetSwapchainImageCount(),
+        .minImageCount = m_context->GetSwapchainImageCount(),
         .imageFormat = surfaceFormat.format,
         .imageColorSpace = surfaceFormat.colorSpace,
         .imageExtent = extent,
@@ -95,7 +98,7 @@ void Swapchain::Initialize() {
         throw std::runtime_error("[Swapchain] Could not create swap chain: " + std::to_string(result));
     }
 
-    m_swapChainImages.resize(m_app->GetSwapchainImageCount());
+    m_swapChainImages.resize(m_context->GetSwapchainImageCount());
 
     uint32_t swapChainImageCount = m_swapChainImages.size();
     result = vkGetSwapchainImagesKHR(m_device->GetVkDevice(), m_swapChain, &swapChainImageCount, m_swapChainImages.data());
@@ -146,7 +149,7 @@ void Swapchain::CreateImageViews() {
 VkSurfaceFormatKHR Swapchain::ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats) const {
 
     for (const auto& format : formats) {
-        if (format.format == m_app->GetConfig()->vkPreferredSurfaceFormat && format.colorSpace == m_app->GetConfig()->vkPreferredSurfaceColorSpace) {
+        if (format.format == m_context->GetConfig()->vkPreferredSurfaceFormat && format.colorSpace == m_context->GetConfig()->vkPreferredSurfaceColorSpace) {
             return format;
         }
     }
@@ -157,8 +160,8 @@ VkSurfaceFormatKHR Swapchain::ChooseSurfaceFormat(const std::vector<VkSurfaceFor
 
 VkPresentModeKHR Swapchain::ChoosePresentMode(const std::vector<VkPresentModeKHR>& presentModes) const {
 
-    if (std::ranges::find(presentModes, m_app->GetConfig()->vkPreferredPresentMode) != presentModes.end()) {
-        return m_app->GetConfig()->vkPreferredPresentMode;
+    if (std::ranges::find(presentModes, m_context->GetConfig()->vkPreferredPresentMode) != presentModes.end()) {
+        return m_context->GetConfig()->vkPreferredPresentMode;
     }
 
     spdlog::warn("[Swapchain] Could not find the specified present mode. Using VK_PRESENT_MODE_FIFO_KHR");
@@ -175,7 +178,7 @@ VkExtent2D Swapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilit
 	spdlog::info("[Swapchain] Detected high DPI");
 
     int width, height;
-	m_app->GetScreenSize(width, height);
+	m_context->GetScreenSize(width, height);
 
     VkExtent2D actualExtent = {
         static_cast<uint32_t>(width),

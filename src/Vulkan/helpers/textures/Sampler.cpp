@@ -3,14 +3,15 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include "../Context.hpp"
 #include "../../pch.hpp"
 #include "../buffers/StagingBuffer.hpp"
 
-Sampler::Sampler(const Device* device, const std::string& path, const Sampler::Desc& desc) {
+Sampler::Sampler(const Context* context, const std::string& path) {
 
-	m_device = device;
+	m_context = context;
 
-	this->LoadImage(desc, path);
+	this->LoadImage(path);
 
 	const VkImageViewCreateInfo viewCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -26,7 +27,7 @@ Sampler::Sampler(const Device* device, const std::string& path, const Sampler::D
 		}
 	};
 
-	VkResult result = vkCreateImageView(m_device->GetVkDevice(), &viewCreateInfo, nullptr, &m_imageView);
+	VkResult result = vkCreateImageView(m_context->GetDevice()->GetVkDevice(), &viewCreateInfo, nullptr, &m_imageView);
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("[Sampler] Could not create image view");
 	}
@@ -49,7 +50,7 @@ Sampler::Sampler(const Device* device, const std::string& path, const Sampler::D
 		.unnormalizedCoordinates = VK_FALSE,
 	};
 
-	result = vkCreateSampler(m_device->GetVkDevice(), &samplerCreateInfo, nullptr, &m_sampler);
+	result = vkCreateSampler(m_context->GetDevice()->GetVkDevice(), &samplerCreateInfo, nullptr, &m_sampler);
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("[Sampler] Could not create sampler");
 	}
@@ -57,11 +58,11 @@ Sampler::Sampler(const Device* device, const std::string& path, const Sampler::D
 
 void Sampler::Destroy() {
 
-	vkDestroySampler(m_device->GetVkDevice(), m_sampler, nullptr);
-	vkDestroyImageView(m_device->GetVkDevice(), m_imageView, nullptr);
+	vkDestroySampler(m_context->GetDevice()->GetVkDevice(), m_sampler, nullptr);
+	vkDestroyImageView(m_context->GetDevice()->GetVkDevice(), m_imageView, nullptr);
 
-	vkDestroyImage(m_device->GetVkDevice(), m_image, nullptr);
-	vkFreeMemory(m_device->GetVkDevice(), m_imageMemory, nullptr);
+	vkDestroyImage(m_context->GetDevice()->GetVkDevice(), m_image, nullptr);
+	vkFreeMemory(m_context->GetDevice()->GetVkDevice(), m_imageMemory, nullptr);
 
 	m_image = VK_NULL_HANDLE;
 	m_imageMemory = VK_NULL_HANDLE;
@@ -79,7 +80,7 @@ VkImageLayout Sampler::GetVkImageLayout() const {
 	return m_layout;
 }
 
-void Sampler::LoadImage(const Sampler::Desc& desc, const std::string& path) {
+void Sampler::LoadImage(const std::string& path) {
 	int width, height;
 	int channelCount;
 
@@ -90,12 +91,7 @@ void Sampler::LoadImage(const Sampler::Desc& desc, const std::string& path) {
 		throw std::runtime_error("[Sampler] Could not load sampler from path: " + path);
 	}
 
-	const StagingBuffer::Desc stagingBufferDesc = {
-		.graphicsQueue = desc.graphicsQueue,
-		.transferQueue = desc.transferQueue,
-		.bufferSize = imageSize
-	};
-	StagingBuffer stagingBuffer(m_device, stagingBufferDesc);
+	StagingBuffer stagingBuffer(m_context, imageSize);
 
 	void* mappedMemory = stagingBuffer.MapMemory(stagingBuffer.GetBufferSize());
 	std::memcpy(mappedMemory, pixels, stagingBuffer.GetBufferSize());
@@ -121,7 +117,7 @@ void Sampler::LoadImage(const Sampler::Desc& desc, const std::string& path) {
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
 	};
 
-	const VkResult result = vkCreateImage(m_device->GetVkDevice(), &imageInfo, nullptr, &m_image);
+	const VkResult result = vkCreateImage(m_context->GetDevice()->GetVkDevice(), &imageInfo, nullptr, &m_image);
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("[Sampler] Could not create image: " + std::to_string(result));
 	}
@@ -143,31 +139,33 @@ void Sampler::LoadImage(const Sampler::Desc& desc, const std::string& path) {
 		.imageExtent = VkExtent3D { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1 },
 	};
 
-	constexpr VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-	vkBeginCommandBuffer(desc.transferCommandBuffer, &beginInfo);
+	VkCommandBuffer transferCommandBuffer = m_context->GetTransferCommandBuffer();
 
-	this->TransitionLayout(desc.transferCommandBuffer, TransitionDesc{
+	constexpr VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+	vkBeginCommandBuffer(transferCommandBuffer, &beginInfo);
+
+	this->TransitionLayout(transferCommandBuffer, TransitionDesc{
 		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED, .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		.srcAccess = VK_ACCESS_NONE, .dstAccess = VK_ACCESS_NONE,
 		.srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT
 	});
-	vkCmdCopyBufferToImage(desc.transferCommandBuffer, stagingBuffer.GetVkBuffer(), m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-	this->TransitionLayout(desc.transferCommandBuffer, TransitionDesc{
+	vkCmdCopyBufferToImage(transferCommandBuffer, stagingBuffer.GetVkBuffer(), m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	this->TransitionLayout(transferCommandBuffer, TransitionDesc{
 		.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		.srcAccess = VK_ACCESS_NONE, .dstAccess = VK_ACCESS_NONE,
 		.srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
 	});
 	m_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	vkEndCommandBuffer(desc.transferCommandBuffer);
+	vkEndCommandBuffer(transferCommandBuffer);
 
 	const VkSubmitInfo submitInfo = {
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		.commandBufferCount = 1,
-		.pCommandBuffers = &desc.transferCommandBuffer
+		.pCommandBuffers = &transferCommandBuffer
 	};
 
-	const VkQueue copyQueue = desc.transferQueue.has_value() ? desc.transferQueue.value()->GetVkQueue() : desc.graphicsQueue->GetVkQueue();
+	const VkQueue copyQueue = m_context->GetActualTransferQueue()->GetVkQueue();
 	vkQueueSubmit(copyQueue, 1, &submitInfo, VK_NULL_HANDLE);
 	vkQueueWaitIdle(copyQueue);
 
@@ -204,7 +202,7 @@ void Sampler::TransitionLayout(VkCommandBuffer commandBuffer, const TransitionDe
 
 void Sampler::AllocateImage(VkMemoryPropertyFlags memoryProperty) {
 	VkMemoryRequirements memoryRequirements;
-	vkGetImageMemoryRequirements(m_device->GetVkDevice(), m_image, &memoryRequirements);
+	vkGetImageMemoryRequirements(m_context->GetDevice()->GetVkDevice(), m_image, &memoryRequirements);
 
 	const VkMemoryAllocateInfo memoryAllocateInfo = {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -214,18 +212,18 @@ void Sampler::AllocateImage(VkMemoryPropertyFlags memoryProperty) {
 	};
 
 	// TODO: Learn about VMA
-	const VkResult result = vkAllocateMemory(m_device->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_imageMemory);
+	const VkResult result = vkAllocateMemory(m_context->GetDevice()->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_imageMemory);
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("[Sampler] Could not allocate memory for the vertex buffer");
 	}
 
 	m_allocatedMemorySize = memoryRequirements.size;
-	vkBindImageMemory(m_device->GetVkDevice(), m_image, m_imageMemory, 0);
+	vkBindImageMemory(m_context->GetDevice()->GetVkDevice(), m_image, m_imageMemory, 0);
 }
 
 uint32_t Sampler::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
 	VkPhysicalDeviceMemoryProperties memoryProperties;
-	vkGetPhysicalDeviceMemoryProperties(m_device->GetVkPhysicalDevice(), &memoryProperties);
+	vkGetPhysicalDeviceMemoryProperties(m_context->GetDevice()->GetVkPhysicalDevice(), &memoryProperties);
 
 	for (uint32_t ind = 0; ind < memoryProperties.memoryTypeCount; ind++) {
 		if (typeFilter & (1 << ind) && (memoryProperties.memoryTypes[ind].propertyFlags & properties)) {

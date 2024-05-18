@@ -1,16 +1,12 @@
 #include "LocalBuffer.hpp"
 
 #include "StagingBuffer.hpp"
+#include "../Context.hpp"
 
-LocalBuffer::LocalBuffer(const Device* device, const LocalBuffer::Desc& desc) : GenericBuffer(device) {
+LocalBuffer::LocalBuffer(const Context* context, const LocalBuffer::Desc& desc) : GenericBuffer(context) {
 
-	const StagingBuffer::Desc stagingBufferDesc = {
-        .graphicsQueue = desc.graphicsQueue,
-        .transferQueue = desc.transferQueue,
-        .bufferSize = desc.bufferSize
-    };
 
-    StagingBuffer stagingBuffer(m_device, stagingBufferDesc);
+    StagingBuffer stagingBuffer(m_context, desc.bufferSize);
     stagingBuffer.CopyData(desc.buffer, desc.bufferSize);
 
     this->CreateBuffer({
@@ -21,7 +17,8 @@ LocalBuffer::LocalBuffer(const Device* device, const LocalBuffer::Desc& desc) : 
     });
     this->AllocateBuffer(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	this->CopyFromBuffer(desc.transferCommandBuffer, &stagingBuffer, {
+    VkCommandBuffer transferCommandBuffer = m_context->GetTransferCommandBuffer();
+	this->CopyFromBuffer(transferCommandBuffer, &stagingBuffer, {
         .srcOffset = 0,
         .dstOffset = 0,
         .size = desc.bufferSize
@@ -30,10 +27,10 @@ LocalBuffer::LocalBuffer(const Device* device, const LocalBuffer::Desc& desc) : 
     const VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .commandBufferCount = 1,
-        .pCommandBuffers = &desc.transferCommandBuffer
+        .pCommandBuffers = &transferCommandBuffer
     };
 
-    const VkQueue copyQueue = desc.transferQueue.has_value() ? desc.transferQueue.value()->GetVkQueue() : desc.graphicsQueue->GetVkQueue();
+    const VkQueue copyQueue = m_context->GetActualTransferQueue()->GetVkQueue();
     vkQueueSubmit(copyQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(copyQueue);
 

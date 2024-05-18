@@ -2,29 +2,19 @@
 
 #include <vector>
 
-StagingBuffer::StagingBuffer(const Device* device, const Desc& desc) : GenericBuffer(device) {
+#include "../Context.hpp"
 
-    std::vector<uint32_t> queueFamilyIndices;
-    VkSharingMode sharingMode;
+StagingBuffer::StagingBuffer(const Context* context, const VkDeviceSize bufferSize) : GenericBuffer(context) {
 
-    if (!desc.transferQueue.has_value() || desc.graphicsQueue->GetFamilyIndex() == desc.transferQueue.value()->GetFamilyIndex()) {
-        queueFamilyIndices.push_back(desc.graphicsQueue->GetFamilyIndex());
-        sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    }
-    else {
-        queueFamilyIndices.push_back(desc.graphicsQueue->GetFamilyIndex());
-        queueFamilyIndices.push_back(desc.transferQueue.value()->GetFamilyIndex());
-
-        sharingMode = VK_SHARING_MODE_CONCURRENT;
-    }
+    Context::ShareInfo shareInfo = context->GetTransferShareInfo();
 
     const VkBufferCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = desc.bufferSize,
+        .size = bufferSize,
         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        .sharingMode = sharingMode,
-        .queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size()),
-        .pQueueFamilyIndices = queueFamilyIndices.data()
+        .sharingMode = shareInfo.sharingMode,
+        .queueFamilyIndexCount = static_cast<uint32_t>(shareInfo.queueFamilyIndices.size()),
+        .pQueueFamilyIndices = shareInfo.queueFamilyIndices.data()
     };
 
     this->CreateBuffer(createInfo);

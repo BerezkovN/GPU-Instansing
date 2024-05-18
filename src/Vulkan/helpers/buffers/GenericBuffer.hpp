@@ -2,7 +2,7 @@
 
 #include <volk.h>
 
-#include "../Device.hpp"
+class Context;
 
 class GenericBuffer
 {
@@ -13,7 +13,7 @@ public:
 		VkMemoryPropertyFlags memoryProperty;
 	};
 
-	GenericBuffer(const Device* device, const GenericBuffer::Desc& desc);
+	GenericBuffer(const Context* context, const GenericBuffer::Desc& desc);
 	void Destroy();
 
 	void* MapMemory(const VkDeviceSize memorySize);
@@ -39,14 +39,14 @@ public:
 
 protected:
 
-	GenericBuffer(const Device* device);
+	explicit GenericBuffer(const Context* context);
 
 	void CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo);
 	void AllocateBuffer(VkMemoryPropertyFlags memoryProperty);
 
-	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+	[[nodiscard]] uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
-	const Device* m_device;
+	const Context* m_context;
 
 	VkBuffer m_buffer;
 	VkDeviceMemory m_bufferMemory;

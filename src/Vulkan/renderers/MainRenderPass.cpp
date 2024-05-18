@@ -1,8 +1,10 @@
 #include "MainRenderPass.hpp"
 
 #include "../pch.hpp"
+#include "../helpers/Swapchain.hpp"
+#include "../helpers/Device.hpp"
 
-MainRenderPass::MainRenderPass(const Device* device, const Swapchain* swapchain) {
+void MainRenderPass::Initialize(const Device* device, const Swapchain* swapchain) {
 
     m_device = device;
 

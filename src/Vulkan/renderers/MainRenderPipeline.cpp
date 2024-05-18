@@ -1,15 +1,15 @@
 #include "MainRenderPipeline.hpp"
 
-#include "../App.hpp"
 #include "../pch.hpp"
+#include "../helpers/Context.hpp"
+#include "../helpers/ShaderLayout.hpp"
+#include "../helpers/IRenderPass.hpp"
 
 
-MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& desc) {
+MainRenderPipeline::MainRenderPipeline(const Context* context, const ShaderLayout* shaderLayout) {
 
-    m_app = desc.app;
-    m_device = desc.device;
-    m_renderPass = desc.renderPass;
-    m_shaderLayout = desc.shaderLayout;
+    m_context = context;
+    m_shaderLayout = shaderLayout;
     
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
@@ -105,14 +105,14 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
         .pColorBlendState = &blendStateCreateInfo,
         .pDynamicState = &dynamicStateCreateInfo,
         .layout = m_shaderLayout->GetVkPipelineLayout(),
-        .renderPass = desc.renderPass->GetVkRenderPass(),
+        .renderPass = m_context->GetRenderPass()->GetVkRenderPass(),
         .subpass = 0,
         // TODO: Learn more about this
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = -1
     };
 
-    const VkResult result = vkCreateGraphicsPipelines(m_device->GetVkDevice(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &m_pipeline);
+    const VkResult result = vkCreateGraphicsPipelines(m_context->GetDevice()->GetVkDevice(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &m_pipeline);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[MainRenderPipeline] Could not create graphics pipeline: " + std::to_string(result));
     }
@@ -122,7 +122,7 @@ MainRenderPipeline::MainRenderPipeline(const MainRenderPipeline::CreateDesc& des
 
 void MainRenderPipeline::Destroy() {
 
-	vkDestroyPipeline(m_device->GetVkDevice(), m_pipeline, nullptr);
+	vkDestroyPipeline(m_context->GetDevice()->GetVkDevice(), m_pipeline, nullptr);
 }
 
 VkPipeline MainRenderPipeline::GetVkPipeline() const {

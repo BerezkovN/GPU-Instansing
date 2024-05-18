@@ -3,18 +3,18 @@
 #include <volk.h>
 #include <GLFW/glfw3.h>
 
-class App;
+class Context;
 
 class Surface {
 
 public:
-    Surface(const App* app, GLFWwindow* window);
+    Surface(const Context* context, GLFWwindow* window);
     void Destroy();
 
     VkSurfaceKHR GetVkSurface() const;
 
 private:
-    const App* m_app;
+    const Context* m_context;
     VkSurfaceKHR m_surface;
 };
 

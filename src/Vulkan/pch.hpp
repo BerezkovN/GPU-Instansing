@@ -7,6 +7,7 @@
 #include <vector>
 #include <chrono>
 #include <numeric>
+#include <optional>
 
 // Using volk instead of vulkan/vulkan.h
 #include <volk.h>

@@ -1,21 +1,16 @@
 #pragma once
 
 #include <string>
+#include <volk.h>
 
-#include "../Device.hpp"
+class Context;
 
 class Sampler
 {
 public:
-	struct Desc
-	{
-		const DeviceQueue* graphicsQueue;
-		std::optional<const DeviceQueue*> transferQueue;
 
-		VkCommandBuffer transferCommandBuffer;
-	};
 
-	Sampler(const Device* device, const std::string& path, const Sampler::Desc& desc);
+	Sampler(const Context* context, const std::string& path);
 	void Destroy();
 
 	[[nodiscard]] VkSampler GetVkSampler() const;
@@ -24,7 +19,7 @@ public:
 
 private:
 
-	void LoadImage(const Sampler::Desc& desc, const std::string& path);
+	void LoadImage(const std::string& path);
 
 	struct TransitionDesc
 	{
@@ -40,7 +35,7 @@ private:
 	void AllocateImage(VkMemoryPropertyFlags memoryProperty);
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
-	const Device* m_device{};
+	const Context* m_context;
 
 	VkImage m_image{};
 	VkDeviceMemory m_imageMemory{};

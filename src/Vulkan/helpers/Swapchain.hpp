@@ -4,7 +4,7 @@
 #include <vector>
 
 
-class App;
+class Context;
 class Surface;
 class Device;
 
@@ -12,7 +12,7 @@ class Swapchain {
 
 public:
 
-    Swapchain(const App* app, const Surface* surface, const Device* device);
+    Swapchain(const Context* context, const Surface* surface, const Device* device);
     void Destroy();
 
     /**
@@ -36,7 +36,7 @@ private:
     [[nodiscard]] VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& presentModes) const;
     [[nodiscard]] VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const;
 
-    const App* m_app;
+    const Context* m_context;
     const Surface* m_surface;
     const Device* m_device;
 
