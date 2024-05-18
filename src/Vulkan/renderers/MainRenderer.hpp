@@ -7,6 +7,7 @@
 #include "../helpers/ShaderLayout.hpp"
 #include "../helpers/Device.hpp"
 #include "../helpers/buffers/GenericBuffer.hpp"
+#include "../helpers/textures/Sampler.hpp"
 
 #include <glm/mat4x4.hpp>
 
@@ -73,6 +74,8 @@ private:
 	std::unique_ptr<GenericBuffer> m_indexBuffer;
 
 	std::unique_ptr<GenericBuffer> m_uniformBuffer;
+
+	std::unique_ptr<Sampler> m_sampler;
 
 	std::unique_ptr<IRenderPipeline> m_mainRenderPipeline;
 };

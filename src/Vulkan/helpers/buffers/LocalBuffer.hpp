@@ -14,7 +14,7 @@ public:
 		VkBufferUsageFlags usageFlags;
 
 		const void* buffer;
-		uint32_t bufferSize;
+		VkDeviceSize bufferSize;
 	};
 
 	LocalBuffer(const Device* device, const LocalBuffer::Desc& desc);

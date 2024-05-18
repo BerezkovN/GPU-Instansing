@@ -20,6 +20,7 @@ MainRenderer::MainRenderer(const MainRenderer::CreateDesc& desc) {
     this->CreateIndexBuffer();
     this->CreateUniformBuffers();
 
+
     m_vertexShader = std::make_unique<Shader>(m_device, "shaders/triangle.vert.spv", Shader::Type::Vertex);
     m_fragmentShader = std::make_unique<Shader>(m_device, "shaders/triangle.frag.spv", Shader::Type::Fragment);
 
@@ -36,9 +37,18 @@ MainRenderer::MainRenderer(const MainRenderer::CreateDesc& desc) {
     };
     m_mainRenderPipeline = std::make_unique<MainRenderPipeline>(pipelineDesc);
 
+    Sampler::Desc treeDesc = {
+        .graphicsQueue = m_graphicsQueue,
+        .transferQueue = m_transferQueue,
+        .transferCommandBuffer = m_transferCommandBuffer
+    };
+    m_sampler = std::make_unique<Sampler>(m_device, "textures/Tree.png", treeDesc);
+
 }
 
 void MainRenderer::Destroy() {
+
+    m_sampler->Destroy();
 
     m_mainRenderPipeline->Destroy();
 	m_vertexShader->Destroy();
@@ -150,7 +160,7 @@ void MainRenderer::RecordAndSubmit(const MainRenderer::RecordDesc& desc) const {
 void MainRenderer::CreateUniformBuffers() {
 
     GenericBuffer::Desc desc = {
-        .bufferCreateInfo = {
+        .bufferCreateInfo = VkBufferCreateInfo {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .size = sizeof(MainRenderer::UniformBufferObject),
             .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,

@@ -9,7 +9,7 @@ public:
 	{
 		const DeviceQueue* graphicsQueue;
 		std::optional<const DeviceQueue*> transferQueue;
-		uint32_t bufferSize;
+		VkDeviceSize bufferSize;
 	};
 
 	StagingBuffer(const Device* device, const StagingBuffer::Desc& desc);

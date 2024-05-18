@@ -47,10 +47,7 @@ void GenericBuffer::CopyData(const void* data, const VkDeviceSize dataSize) {
 
 void GenericBuffer::CopyFromBuffer(const VkCommandBuffer commandBuffer, const GenericBuffer* srcBuffer, const VkBufferCopy& bufferCopyInfo) const {
 
-	constexpr VkCommandBufferBeginInfo beginInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-    };
+	constexpr VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
     vkCmdCopyBuffer(commandBuffer, srcBuffer->GetVkBuffer(), m_buffer, 1, &bufferCopyInfo);

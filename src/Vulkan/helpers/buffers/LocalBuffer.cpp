@@ -4,14 +4,14 @@
 
 LocalBuffer::LocalBuffer(const Device* device, const LocalBuffer::Desc& desc) : GenericBuffer(device) {
 
-
-    StagingBuffer::Desc stagingBufferDesc = {
+	const StagingBuffer::Desc stagingBufferDesc = {
         .graphicsQueue = desc.graphicsQueue,
         .transferQueue = desc.transferQueue,
         .bufferSize = desc.bufferSize
     };
-    const auto stagingBuffer = std::make_unique<StagingBuffer>(m_device, stagingBufferDesc);
-    stagingBuffer->CopyData(desc.buffer, desc.bufferSize);
+
+    StagingBuffer stagingBuffer(m_device, stagingBufferDesc);
+    stagingBuffer.CopyData(desc.buffer, desc.bufferSize);
 
     this->CreateBuffer({
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -21,7 +21,7 @@ LocalBuffer::LocalBuffer(const Device* device, const LocalBuffer::Desc& desc) : 
     });
     this->AllocateBuffer(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	this->CopyFromBuffer(desc.transferCommandBuffer, stagingBuffer.get(), {
+	this->CopyFromBuffer(desc.transferCommandBuffer, &stagingBuffer, {
         .srcOffset = 0,
         .dstOffset = 0,
         .size = desc.bufferSize
@@ -37,5 +37,5 @@ LocalBuffer::LocalBuffer(const Device* device, const LocalBuffer::Desc& desc) : 
     vkQueueSubmit(copyQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(copyQueue);
 
-    stagingBuffer->Destroy();
+    stagingBuffer.Destroy();
 }
