@@ -29,6 +29,9 @@ public:
 	void AttachBuffer(const DescriptorID& id, const GenericBuffer* buffer, VkDeviceSize offset, VkDeviceSize range);
 	void AttackSampler(const DescriptorID& id, const Sampler* sampler);
 
+	void AttachBuffer(const std::string& name, const GenericBuffer* buffer, VkDeviceSize offset, VkDeviceSize range);
+	void AttackSampler(const std::string& name, const Sampler* sampler);
+
 	void BindDescriptors(VkCommandBuffer buffer) const;
 
 	[[nodiscard]] DescriptorID GetDescriptorID(const std::string& name);

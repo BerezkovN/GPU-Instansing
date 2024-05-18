@@ -26,9 +26,6 @@ MainRenderer::MainRenderer(const MainRenderer::CreateDesc& desc) {
 
     m_shaderLayout = std::make_unique<ShaderLayout>(m_device, m_vertexShader.get(), m_fragmentShader.get());
 
-    const auto uboId = m_shaderLayout->GetDescriptorID("UniformBufferObject");
-    m_shaderLayout->AttachBuffer(uboId, m_uniformBuffer.get(), 0, m_uniformBuffer->GetBufferSize());
-
     MainRenderPipeline::CreateDesc pipelineDesc = {
         .app = desc.app,
         .device = desc.device,
@@ -44,8 +41,8 @@ MainRenderer::MainRenderer(const MainRenderer::CreateDesc& desc) {
     };
     m_sampler = std::make_unique<Sampler>(m_device, "textures/Tree.png", treeDesc);
 
-    const auto samplerId = m_shaderLayout->GetDescriptorID("texSampler");
-    m_shaderLayout->AttackSampler(samplerId, m_sampler.get());
+	m_shaderLayout->AttachBuffer("UniformBufferObject", m_uniformBuffer.get(), 0, m_uniformBuffer->GetBufferSize());
+    m_shaderLayout->AttackSampler("texSampler", m_sampler.get());
 
 }
 

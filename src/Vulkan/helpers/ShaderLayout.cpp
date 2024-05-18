@@ -78,6 +78,14 @@ void ShaderLayout::AttackSampler(const DescriptorID& id, const Sampler* sampler)
     vkUpdateDescriptorSets(m_device->GetVkDevice(), 1, &write, 0, nullptr);
 }
 
+void ShaderLayout::AttachBuffer(const std::string& name, const GenericBuffer* buffer, VkDeviceSize offset, VkDeviceSize range) {
+    this->AttachBuffer(this->GetDescriptorID(name), buffer, offset, range);
+}
+
+void ShaderLayout::AttackSampler(const std::string& name, const Sampler* sampler) {
+    this->AttackSampler(this->GetDescriptorID(name), sampler);
+}
+
 VkPipelineLayout ShaderLayout::GetVkPipelineLayout() const {
     return m_pipelineLayout;
 }
