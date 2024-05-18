@@ -57,6 +57,27 @@ void ShaderLayout::AttachBuffer(const DescriptorID& id, const GenericBuffer* buf
     vkUpdateDescriptorSets(m_device->GetVkDevice(), 1, &write, 0, nullptr);
 }
 
+void ShaderLayout::AttackSampler(const DescriptorID& id, const Sampler* sampler) {
+
+    VkDescriptorImageInfo imageInfo = {
+        .sampler = sampler->GetVkSampler(),
+        .imageView = sampler->GetVkImageView(),
+        .imageLayout = sampler->GetVkImageLayout()
+    };
+
+    const VkWriteDescriptorSet write = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = m_descriptorSets[id.set],
+        .dstBinding = id.binding,
+        .dstArrayElement = id.index,
+        .descriptorCount = 1,           // TODO: Support array bindings.
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .pImageInfo = &imageInfo
+    };
+
+    vkUpdateDescriptorSets(m_device->GetVkDevice(), 1, &write, 0, nullptr);
+}
+
 VkPipelineLayout ShaderLayout::GetVkPipelineLayout() const {
     return m_pipelineLayout;
 }
@@ -102,7 +123,8 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderLayout::GetVkShaderStages() c
 void ShaderLayout::ParseShader(const Shader* shader, std::vector<VkDescriptorPoolSize>& poolSizes) {
 
     this->ParseResourceType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shader, poolSizes);
-    // TODO: Other descriptor types;
+    this->ParseResourceType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shader, poolSizes);
+
 }
 
 void ShaderLayout::ParseResourceType(VkDescriptorType type, const Shader* shader, std::vector<VkDescriptorPoolSize>& poolSizes) {
@@ -149,6 +171,10 @@ void ShaderLayout::ParseResourceType(VkDescriptorType type, const Shader* shader
         }
     }
 
+    if (descriptorCount == 0) {
+        return;
+    }
+
     poolSizes.push_back(VkDescriptorPoolSize{
 		.type = type,
 		.descriptorCount = descriptorCount
@@ -166,7 +192,7 @@ void ShaderLayout::CreateDescriptorPool(const std::vector<VkDescriptorPoolSize>&
     const VkDescriptorPoolCreateInfo poolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .maxSets = maxSets,
-        .poolSizeCount = 1,
+        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
         .pPoolSizes = poolSizes.data(),
     };
 
@@ -250,7 +276,7 @@ void ShaderLayout::AllocateDescriptorSets() {
 
     const VkResult result = vkAllocateDescriptorSets(m_device->GetVkDevice(), &allocateInfo, m_descriptorSets.data());
     if (result != VK_SUCCESS) {
-        throw std::runtime_error("[ShaderLayout] Could not allocate descriptor sets");
+        throw std::runtime_error("[ShaderLayout] Could not allocate descriptor sets: " + std::to_string(result));
     }
 
     for (const auto& setInfo : m_descriptorSetsInfo) {
@@ -280,6 +306,8 @@ ShaderLayout::GetResourceFromType(const spirv_cross::ShaderResources& resources,
     switch (type) {
     case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
         return resources.uniform_buffers;
+    case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+        return resources.sampled_images;
     default:
         throw std::runtime_error("[ShaderLayout] Descriptor type is not implemented");
     }

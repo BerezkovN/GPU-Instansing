@@ -18,6 +18,10 @@ public:
 	Sampler(const Device* device, const std::string& path, const Sampler::Desc& desc);
 	void Destroy();
 
+	[[nodiscard]] VkSampler GetVkSampler() const;
+	[[nodiscard]] VkImageView GetVkImageView() const;
+	[[nodiscard]] VkImageLayout GetVkImageLayout() const;
+
 private:
 
 	void LoadImage(const Sampler::Desc& desc, const std::string& path);
@@ -42,8 +46,9 @@ private:
 	VkDeviceMemory m_imageMemory{};
 
 	VkImageView m_imageView{};
-
 	VkSampler m_sampler{};
+
+	VkImageLayout m_layout;
 
 	VkDeviceSize m_allocatedMemorySize{};
 };

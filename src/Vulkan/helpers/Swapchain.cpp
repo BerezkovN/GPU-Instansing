@@ -82,7 +82,7 @@ void Swapchain::Initialize() {
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = presentMode,
         .clipped = VK_TRUE,
-        .oldSwapchain = m_swapChain
+        .oldSwapchain = VK_NULL_HANDLE // TODO: Figure this out
     };
 
     // TODO: implement separation of presentation and graphics queue.

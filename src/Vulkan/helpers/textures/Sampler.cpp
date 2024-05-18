@@ -67,6 +67,18 @@ void Sampler::Destroy() {
 	m_imageMemory = VK_NULL_HANDLE;
 }
 
+VkSampler Sampler::GetVkSampler() const {
+	return m_sampler;
+}
+
+VkImageView Sampler::GetVkImageView() const {
+	return m_imageView;
+}
+
+VkImageLayout Sampler::GetVkImageLayout() const {
+	return m_layout;
+}
+
 void Sampler::LoadImage(const Sampler::Desc& desc, const std::string& path) {
 	int width, height;
 	int channelCount;
@@ -145,8 +157,19 @@ void Sampler::LoadImage(const Sampler::Desc& desc, const std::string& path) {
 		.srcAccess = VK_ACCESS_NONE, .dstAccess = VK_ACCESS_NONE,
 		.srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
 	});
+	m_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	vkEndCommandBuffer(desc.transferCommandBuffer);
+
+	const VkSubmitInfo submitInfo = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &desc.transferCommandBuffer
+	};
+
+	const VkQueue copyQueue = desc.transferQueue.has_value() ? desc.transferQueue.value()->GetVkQueue() : desc.graphicsQueue->GetVkQueue();
+	vkQueueSubmit(copyQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(copyQueue);
 
 	stagingBuffer.Destroy();
 }

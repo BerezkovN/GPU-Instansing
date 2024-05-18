@@ -6,6 +6,7 @@
 #include "../helpers/ShaderLayout.hpp"
 
 #include <glm/vec3.hpp>
+#include <glm/vec2.hpp>
 
 class MainRenderPipeline : public IRenderPipeline
 {
@@ -15,6 +16,7 @@ public:
 	{
 		glm::vec3 position;
 		int color;
+		glm::vec2 uv;
 	};
 
 	struct CreateDesc

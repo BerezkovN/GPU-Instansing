@@ -6,6 +6,7 @@
 #include "Device.hpp"
 
 #include "./buffers/GenericBuffer.hpp"
+#include "./textures/Sampler.hpp"
 
 class ShaderLayout
 {
@@ -26,6 +27,8 @@ public:
 	void Destroy();
 
 	void AttachBuffer(const DescriptorID& id, const GenericBuffer* buffer, VkDeviceSize offset, VkDeviceSize range);
+	void AttackSampler(const DescriptorID& id, const Sampler* sampler);
+
 	void BindDescriptors(VkCommandBuffer buffer) const;
 
 	[[nodiscard]] DescriptorID GetDescriptorID(const std::string& name);

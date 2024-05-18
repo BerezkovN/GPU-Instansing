@@ -146,6 +146,13 @@ std::vector<VkVertexInputAttributeDescription> MainRenderPipeline::GetAttributes
         .offset = offsetof(Vertex, color)
     });
 
+    attributeDescriptions.push_back({
+        .location = 2,
+        .binding = 0,
+        .format = VK_FORMAT_R32G32_SFLOAT,
+        .offset = offsetof(Vertex, uv)
+    });
+
     return attributeDescriptions;
 }
 
