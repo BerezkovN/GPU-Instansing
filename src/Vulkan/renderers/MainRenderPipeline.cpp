@@ -22,19 +22,25 @@ MainRenderPipeline::MainRenderPipeline(const Context* context, const ShaderLayou
         .pDynamicStates = dynamicStates.data()
     };
 
-    VkVertexInputBindingDescription bindingDescription = {
-	    .binding = 0,
-	    .stride = sizeof(Vertex),
-	    // TODO: Instancing
-	    .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+    std::vector vertexInputBindingDescriptions{
+        VkVertexInputBindingDescription {
+	        .binding = 0,
+            .stride = sizeof(Vertex),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+        },
+        VkVertexInputBindingDescription {
+            .binding = 1,
+            .stride = sizeof(InstanceData),
+            .inputRate = VK_VERTEX_INPUT_RATE_INSTANCE
+        }
     };
 
     const auto attributeDescriptions = this->GetAttributes();
 
     const VkPipelineVertexInputStateCreateInfo vertexInputStateInfo = {
 	    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-	    .vertexBindingDescriptionCount = 1,
-	    .pVertexBindingDescriptions = &bindingDescription,
+	    .vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInputBindingDescriptions.size()),
+	    .pVertexBindingDescriptions = vertexInputBindingDescriptions.data(),
 	    .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
 	    .pVertexAttributeDescriptions = attributeDescriptions.data()
     };
@@ -58,7 +64,7 @@ MainRenderPipeline::MainRenderPipeline(const Context* context, const ShaderLayou
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VK_POLYGON_MODE_FILL,
         .cullMode = VK_CULL_MODE_BACK_BIT,
-        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .lineWidth = 1.0f
     };
 
@@ -151,6 +157,13 @@ std::vector<VkVertexInputAttributeDescription> MainRenderPipeline::GetAttributes
         .binding = 0,
         .format = VK_FORMAT_R32G32_SFLOAT,
         .offset = offsetof(Vertex, uv)
+    });
+
+    attributeDescriptions.push_back({
+        .location = 3,
+        .binding = 1,
+        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .offset = 0
     });
 
     return attributeDescriptions;

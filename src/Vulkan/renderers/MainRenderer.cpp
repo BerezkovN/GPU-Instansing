@@ -53,56 +53,23 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
 
     const VkCommandBuffer commandBuffer = desc.commandBuffer;
 
-    static bool show_demo_window = true;
-    static bool show_another_window = true;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    static float clear_color[4] { 0.2f, 0.25f, 0.45f, 1.0f };
 
-    // Start the Dear ImGui frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-    if (show_demo_window)
-        ImGui::ShowDemoWindow(&show_demo_window);
+    bool open = true;
+    ImGui::Begin("Debug", &open);
 
-    // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-    {
-        static float f = 0.0f;
-        static int counter = 0;
-
-        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-        ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-        ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-        ImGui::Checkbox("Another Window", &show_another_window);
-
-        ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-        ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-        if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-            counter++;
-        ImGui::SameLine();
-        ImGui::Text("counter = %d", counter);
-
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        ImGui::End();
-    }
-
-    // 3. Show another simple window.
-    if (show_another_window)
-    {
-        ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-        ImGui::Text("Hello from another window!");
-        if (ImGui::Button("Close Me"))
-            show_another_window = false;
-        ImGui::End();
-    }
-
-
-    VkClearValue clearValue = {
-        .color = {.float32 = { clear_color.x, clear_color.y, clear_color.z, clear_color.w } }
+    ImGui::ColorEdit3("clear color", clear_color);
+    const VkClearValue clearValue = {
+        .color = {.float32 = {clear_color[0], clear_color[1], clear_color[2], clear_color[3]}}
     };
+
+    this->UpdateUniformBuffers();
+    ImGui::End();
+
 
     VkRenderPassBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -113,7 +80,6 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
     info.pClearValues = &clearValue;
     vkCmdBeginRenderPass(desc.commandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
 
-    // Rendering
     ImGui::Render();
     ImDrawData* draw_data = ImGui::GetDrawData();
     const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
@@ -139,17 +105,16 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_mainRenderPipeline->GetVkPipeline());
 
-    this->UpdateUniformBuffers();
 
     // Learn about vkCmdBindVertexBuffers
-    const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer() };
-    constexpr VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer(), m_instancedBuffer->GetVkBuffer() };
+    constexpr VkDeviceSize offsets[] = { 0, 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 2, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
     m_shaderLayout->BindDescriptors(commandBuffer);
 
-    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 6, m_instanceCount, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 }
@@ -182,14 +147,10 @@ void MainRenderer::UpdateUniformBuffers() const {
     m_context->GetScreenSize(width, height);
 
     MainRenderer::UniformBufferObject ubo = {
-        .model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-        .view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        .view = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0, 0, -4)),
         .proj = glm::perspective(glm::radians(45.0f), static_cast<float>(width) / static_cast<float>(height), 0.1f, 10.0f)
     };
 
-    ubo.proj[1][1] *= -1;
-
-    // TODO: Learn about push constants
     void* mappedUboPtr = m_uniformBuffer->GetMappedMemory();
     std::memcpy(mappedUboPtr, &ubo, sizeof(ubo));
 }
@@ -208,16 +169,37 @@ void MainRenderer::CreateVertexBuffer() {
         {{ 0.5f, -0.5f, 0.0f}, 0xFF03102, {1.0, 0.0}},
     };
 
-    LocalBuffer::Desc desc = {
+    LocalBuffer::Desc vertexDesc = {
         .usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .buffer = vertices.data(),
-        .bufferSize = static_cast <uint32_t>(sizeof(MainRenderPipeline::Vertex) * vertices.size())
+        .bufferSize = sizeof(MainRenderPipeline::Vertex) * vertices.size()
     };
 
-    m_vertexBuffer = std::make_unique<LocalBuffer>(m_context, desc);
+    m_vertexBuffer = std::make_unique<LocalBuffer>(m_context, vertexDesc);
+
+    const std::vector<MainRenderPipeline::InstanceData> instances = {
+        MainRenderPipeline::InstanceData{ .translate = {0, 0, 0, 0} },
+        MainRenderPipeline::InstanceData{ .translate = {0, 1, 0, 0} },
+        MainRenderPipeline::InstanceData{ .translate = {0.5, 1, 0, 0} },
+        MainRenderPipeline::InstanceData{ .translate = {-0.1, -0.1, 0, 0} },
+    };
+
+    m_instanceCount = instances.size();
+
+    LocalBuffer::Desc instanceDesc = {
+        .usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .buffer = instances.data(),
+        .bufferSize = sizeof(MainRenderPipeline::InstanceData) * instances.size()
+    };
+
+    m_instancedBuffer = std::make_unique<LocalBuffer>(m_context, instanceDesc);
 }
 
 void MainRenderer::DestroyVertexBuffer() {
+
+    m_instancedBuffer->Destroy();
+    m_instancedBuffer = nullptr;
+
     m_vertexBuffer->Destroy();
     m_vertexBuffer = nullptr;
 }

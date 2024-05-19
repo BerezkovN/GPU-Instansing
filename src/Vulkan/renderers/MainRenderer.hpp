@@ -25,11 +25,9 @@ private:
 	struct UniformBufferObject
 	{
 		// Beware of alignment!
-		glm::mat4 model;
 		glm::mat4 view;
 		glm::mat4 proj;
 	};
-
 
 	void CreateUniformBuffers();
 	void UpdateUniformBuffers() const;
@@ -49,6 +47,9 @@ private:
 
 	std::unique_ptr<GenericBuffer> m_vertexBuffer;
 	std::unique_ptr<GenericBuffer> m_indexBuffer;
+
+	std::unique_ptr<GenericBuffer> m_instancedBuffer;
+	size_t m_instanceCount{};
 
 	std::unique_ptr<GenericBuffer> m_uniformBuffer;
 

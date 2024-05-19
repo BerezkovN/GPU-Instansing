@@ -47,11 +47,8 @@ target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${GLFW_INCLUDE_DIRS} ${VULK
 target_link_libraries(imgui PRIVATE)
 target_compile_definitions(imgui PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPES)
 
-
 set(IMGUI_INCLUDE_DIRS "${IMGUI_DIR}")
 set(IMGUI_LIBRARIES imgui)
-
-print_sources(imgui)
 
 # GLM
 add_subdirectory(${GLM_DIR})

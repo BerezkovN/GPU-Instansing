@@ -19,7 +19,7 @@ public:
 	void* MapMemory(const VkDeviceSize memorySize);
 	void UnmapMemory();
 
-	void CopyData(const void* data, size_t dataSize);
+	virtual void CopyData(const void* data, size_t dataSize);
 	void CopyFromBuffer(VkCommandBuffer commandBuffer, const GenericBuffer* srcBuffer, const VkBufferCopy& bufferCopyInfo) const;
 
 	[[nodiscard]] void* GetMappedMemory() const;
