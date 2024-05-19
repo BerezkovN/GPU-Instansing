@@ -1,8 +1,13 @@
 #pragma once
 
 #include <memory>
-#include <glm/mat4x4.hpp>
 
+#include <glm/mat4x4.hpp>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+
+#include "MainRenderPipeline.hpp"
 #include "../helpers/IRenderer.hpp"
 
 class Context;
@@ -24,20 +29,38 @@ private:
 
 	struct UniformBufferObject
 	{
-		// Beware of alignment!
 		glm::mat4 view;
 		glm::mat4 proj;
+	};
+
+	struct Vertex
+	{
+		glm::vec3 position;
+		int color;
+		glm::vec2 uv;
+	};
+
+	struct InstanceData
+	{
+		glm::vec4 translate;
+		glm::vec4 rotation;
 	};
 
 	void CreateUniformBuffers();
 	void UpdateUniformBuffers() const;
 	void DestroyUniformBuffers();
 
+	void CreateInstances();
+	void UpdateInstances();
+	void DestroyInstances();
+
 	void CreateVertexBuffer();
 	void DestroyVertexBuffer();
 
 	void CreateIndexBuffer();
 	void DestroyIndexBuffer();
+
+	MainRenderPipeline::VertexFormat GetVertexFormat() const;
 
 	const Context* m_context;
 
@@ -49,11 +72,10 @@ private:
 	std::unique_ptr<GenericBuffer> m_indexBuffer;
 
 	std::unique_ptr<GenericBuffer> m_instancedBuffer;
-	size_t m_instanceCount{};
+	std::vector<MainRenderer::InstanceData> m_instances;
 
 	std::unique_ptr<GenericBuffer> m_uniformBuffer;
 
 	std::unique_ptr<Sampler> m_sampler;
-
 	std::unique_ptr<IRenderPipeline> m_mainRenderPipeline;
 };

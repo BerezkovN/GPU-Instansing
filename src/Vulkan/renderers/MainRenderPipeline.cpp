@@ -6,7 +6,7 @@
 #include "../helpers/IRenderPass.hpp"
 
 
-MainRenderPipeline::MainRenderPipeline(const Context* context, const ShaderLayout* shaderLayout) {
+MainRenderPipeline::MainRenderPipeline(const Context* context, const ShaderLayout* shaderLayout, const MainRenderPipeline::VertexFormat& desc) {
 
     m_context = context;
     m_shaderLayout = shaderLayout;
@@ -22,27 +22,12 @@ MainRenderPipeline::MainRenderPipeline(const Context* context, const ShaderLayou
         .pDynamicStates = dynamicStates.data()
     };
 
-    std::vector vertexInputBindingDescriptions{
-        VkVertexInputBindingDescription {
-	        .binding = 0,
-            .stride = sizeof(Vertex),
-            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
-        },
-        VkVertexInputBindingDescription {
-            .binding = 1,
-            .stride = sizeof(InstanceData),
-            .inputRate = VK_VERTEX_INPUT_RATE_INSTANCE
-        }
-    };
-
-    const auto attributeDescriptions = this->GetAttributes();
-
     const VkPipelineVertexInputStateCreateInfo vertexInputStateInfo = {
 	    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-	    .vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInputBindingDescriptions.size()),
-	    .pVertexBindingDescriptions = vertexInputBindingDescriptions.data(),
-	    .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
-	    .pVertexAttributeDescriptions = attributeDescriptions.data()
+	    .vertexBindingDescriptionCount = static_cast<uint32_t>(desc.bindings.size()),
+	    .pVertexBindingDescriptions = desc.bindings.data(),
+	    .vertexAttributeDescriptionCount = static_cast<uint32_t>(desc.attributes.size()),
+	    .pVertexAttributeDescriptions = desc.attributes.data()
     };
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = {
@@ -133,39 +118,5 @@ void MainRenderPipeline::Destroy() {
 
 VkPipeline MainRenderPipeline::GetVkPipeline() const {
 	return m_pipeline;
-}
-
-std::vector<VkVertexInputAttributeDescription> MainRenderPipeline::GetAttributes() {
-
-    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-    attributeDescriptions.push_back({
-        .location = 0,
-        .binding = 0,
-        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-        .offset = 0
-    });
-
-    attributeDescriptions.push_back({
-        .location = 1,
-        .binding = 0,
-        .format = VK_FORMAT_R8G8B8A8_UNORM,
-        .offset = offsetof(Vertex, color)
-    });
-
-    attributeDescriptions.push_back({
-        .location = 2,
-        .binding = 0,
-        .format = VK_FORMAT_R32G32_SFLOAT,
-        .offset = offsetof(Vertex, uv)
-    });
-
-    attributeDescriptions.push_back({
-        .location = 3,
-        .binding = 1,
-        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-        .offset = 0
-    });
-
-    return attributeDescriptions;
 }
 
