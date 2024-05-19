@@ -19,7 +19,7 @@ public:
 
 	explicit MainRenderer(const Context* context);
 	void Destroy() override;
-	void Record(const MainRenderer::RecordDesc& desc) const override;
+	void Record(const MainRenderer::RecordDesc& desc) override;
 private:
 
 	struct UniformBufferObject

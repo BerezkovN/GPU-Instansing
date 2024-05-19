@@ -10,13 +10,6 @@ set(SPDLOG_DIR "${THIRD_PARTY_DIR}/spdlog")
 set(STB_IMAGE_DIR "${THIRD_PARTY_DIR}/stb_image")
 set(SPIRV_CROSS_DIR "${THIRD_PARTY_DIR}/SPIRV-Cross")
 
-# Slang and GFX
-set(SLANG_ENABLE_EXAMPLES OFF)
-set(SLANG_LIB_TYPE STATIC)
-add_subdirectory(${SLANG_DIR})
-set(SLANG_INCLUDE_DIRS ${SLANG_DIR})
-set(SLANG_LIBRARIES core slang gfx gfx-util platform)
-
 # Vulkan
 if (NOT TARGET Vulkan::Headers)
     find_package(Vulkan REQUIRED)
@@ -41,23 +34,24 @@ set(GLFW_INCLUDE_DIRS "${GLFW_DIR}/include")
 set(GLFW_LIBRARIES glfw)
 
 # ImGUI
-if (NOT TARGET imgui)
-    add_library(imgui STATIC
-        "${IMGUI_DIR}/imgui.cpp"
-        "${IMGUI_DIR}/imgui_draw.cpp"
-        "${IMGUI_DIR}/imgui_demo.cpp"
-        "${IMGUI_DIR}/imgui_widgets.cpp"
-        "${IMGUI_DIR}/imgui_tables.cpp"
-        "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
-        "${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp"
-    )
-    target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${GLFW_INCLUDE_DIRS} ${VULKAN_INCLUDE_DIRS})
-    target_link_libraries(imgui PRIVATE)
-    target_compile_definitions(imgui PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPES)
-endif()
+add_library(imgui STATIC
+    "${IMGUI_DIR}/imgui.cpp"
+    "${IMGUI_DIR}/imgui_draw.cpp"
+    "${IMGUI_DIR}/imgui_demo.cpp"
+    "${IMGUI_DIR}/imgui_widgets.cpp"
+    "${IMGUI_DIR}/imgui_tables.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp"
+)
+target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${GLFW_INCLUDE_DIRS} ${VULKAN_INCLUDE_DIRS})
+target_link_libraries(imgui PRIVATE)
+target_compile_definitions(imgui PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPES)
+
 
 set(IMGUI_INCLUDE_DIRS "${IMGUI_DIR}")
 set(IMGUI_LIBRARIES imgui)
+
+print_sources(imgui)
 
 # GLM
 add_subdirectory(${GLM_DIR})

@@ -21,6 +21,7 @@ App::App() {
     config->vkPreferredSurfaceColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     config->vkPreferredPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
     config->swapChainImageCount = 2;
+    config->useImGui = true;
 
     Context::CreateDesc contextDesc = {
         .config = config,

@@ -19,5 +19,5 @@ public:
 	virtual ~IRenderer() = default;
 	virtual void Destroy() = 0;
 
-	virtual void Record(const IRenderer::RecordDesc& desc) const = 0;
+	virtual void Record(const IRenderer::RecordDesc& desc) = 0;
 };

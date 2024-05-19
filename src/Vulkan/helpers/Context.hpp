@@ -30,6 +30,8 @@ public:
 
         VkPresentModeKHR vkPreferredPresentMode;
         uint32_t swapChainImageCount;
+
+        bool useImGui;
     };
 
     struct CreateDesc
@@ -77,6 +79,7 @@ public:
     [[nodiscard]] ShareInfo GetTransferShareInfo() const;
 
     [[nodiscard]] VkInstance GetVkInstance() const;
+    [[nodiscard]] GLFWwindow* GetGlfwWindow() const;
 
     void SetSwapchainImageCount(uint32_t count) const;
     [[nodiscard]] uint32_t GetSwapchainImageCount() const;
@@ -109,6 +112,9 @@ private:
     void CreateSyncObjects();
     void DestroySyncObjects();
 
+    void InitializeImGui();
+    void DestroyImGui();
+
     [[nodiscard]] std::vector<const char*> GetVulkanInstanceExtensions() const;
     [[nodiscard]] std::vector<const char*> GetVulkanValidationLayers() const;
 
@@ -139,9 +145,10 @@ private:
     /* * *
      * Frame synchronization objects.
      */
-
     VkSemaphore m_imageAvailableSemaphore{};
     VkSemaphore m_renderFinishedSemaphore{};
     VkFence m_submitFrameFence{};
 
+
+    VkDescriptorPool m_imguiDescriptorPool;
 };

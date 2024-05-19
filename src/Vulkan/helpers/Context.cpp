@@ -1,5 +1,9 @@
 #include "Context.hpp"
 
+#include <imgui.h>
+#include <backends/imgui_impl_vulkan.h>
+#include <backends/imgui_impl_glfw.h>
+
 #include "IRenderPass.hpp"
 #include "../pch.hpp"
 
@@ -42,9 +46,13 @@ Context::Context(const Context::CreateDesc& desc) {
 
     this->CreateCommandPools();
     this->CreateCommandBuffers();
+
+    this->InitializeImGui();
 }
 
 void Context::Destroy() {
+
+    this->DestroyImGui();
 
     this->DestroyCommandBuffers();
     this->DestroyCommandPools();
@@ -105,12 +113,32 @@ void Context::RenderUpdate(const std::function<void(const Context::RenderDesc&)>
 
     vkResetFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFence);
 
+
+    vkResetCommandBuffer(m_graphicsCommandBuffer, 0);
+
+    constexpr VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        // TODO: Learn about this
+        .flags = 0,
+        .pInheritanceInfo = nullptr
+    };
+
+    result = vkBeginCommandBuffer(m_graphicsCommandBuffer, &beginInfo);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[Context] Could not begin graphics command buffer: " + std::to_string(result));
+    }
+
     // User code here
     rendererCallback(RenderDesc {
         .commandBuffer = m_graphicsCommandBuffer,
         .framebuffer = m_framebuffers[imageIndex],
         .renderPass = m_renderPass
     });
+
+    result = vkEndCommandBuffer(m_graphicsCommandBuffer);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[MainRenderer] Could not end graphics command buffer: " + std::to_string(result));
+    }
 
     VkSemaphore waitSemaphores[] = { m_imageAvailableSemaphore };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -464,6 +492,67 @@ void Context::DestroySyncObjects() {
     m_submitFrameFence = VK_NULL_HANDLE;
 }
 
+
+void Context::InitializeImGui() {
+
+	const VkDescriptorPoolSize poolSize = {
+        .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1
+    };
+
+	const VkDescriptorPoolCreateInfo descriptorCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .maxSets = 1,
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize
+    };
+
+    vkCreateDescriptorPool(m_mainDevice->GetVkDevice(), &descriptorCreateInfo, nullptr, &m_imguiDescriptorPool);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
+        return vkGetInstanceProcAddr(static_cast<VkInstance>(vulkan_instance), function_name);
+    }, m_instance);
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplGlfw_InitForVulkan(m_window, true);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = m_instance;
+    init_info.PhysicalDevice = m_mainDevice->GetVkPhysicalDevice();
+    init_info.Device = m_mainDevice->GetVkDevice();
+    init_info.QueueFamily = m_graphicsQueue->GetFamilyIndex();
+    init_info.Queue = m_graphicsQueue->GetVkQueue();
+    init_info.PipelineCache = nullptr;
+    init_info.DescriptorPool = m_imguiDescriptorPool;
+    init_info.RenderPass = m_renderPass->GetVkRenderPass();
+    init_info.Subpass = 0;
+    init_info.MinImageCount = 2;
+    init_info.ImageCount = 2;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.Allocator = nullptr;
+    init_info.CheckVkResultFn = nullptr;
+    ImGui_ImplVulkan_Init(&init_info);
+}
+
+void Context::DestroyImGui() {
+
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
+    vkDestroyDescriptorPool(m_mainDevice->GetVkDevice(), m_imguiDescriptorPool, nullptr);
+    m_imguiDescriptorPool = VK_NULL_HANDLE;
+}
+
+
 std::vector<const char*> Context::GetVulkanInstanceExtensions() const {
 
 	uint32_t extensionCount;
@@ -519,8 +608,7 @@ std::vector<const char*> Context::GetVulkanValidationLayers() const {
 
     return result;
 #else
-    layerCount = 0;
-    return nullptr;
+    return std::vector<const char*>{};
 #endif
 }
 
@@ -604,4 +692,8 @@ Context::ShareInfo Context::GetTransferShareInfo() const {
 
 VkInstance Context::GetVkInstance() const {
     return m_instance;
+}
+
+GLFWwindow* Context::GetGlfwWindow() const {
+    return m_window;
 }
