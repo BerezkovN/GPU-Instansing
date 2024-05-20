@@ -73,7 +73,7 @@ void Context::Run(const std::function<void(const Context::RenderDesc&)>& rendere
     while (!glfwWindowShouldClose(m_window)) {
         glfwPollEvents();
 
-        this->RenderUpdate(rendererCallback);
+        this->Update(rendererCallback);
 
         // TODO: Make sure this is correct
         // TODO: Yeah, I don't remember why we need this.
@@ -86,7 +86,7 @@ void Context::HintWindowResize() {
     m_mustResize = true;
 }
 
-void Context::RenderUpdate(const std::function<void(const Context::RenderDesc&)>& rendererCallback) {
+void Context::Update(const std::function<void(const Context::RenderDesc&)>& rendererCallback) {
 
     vkWaitForFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFence, VK_TRUE, UINT64_MAX);
 
@@ -113,32 +113,7 @@ void Context::RenderUpdate(const std::function<void(const Context::RenderDesc&)>
 
     vkResetFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFence);
 
-
-    vkResetCommandBuffer(m_graphicsCommandBuffer, 0);
-
-    constexpr VkCommandBufferBeginInfo beginInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        // TODO: Learn about this
-        .flags = 0,
-        .pInheritanceInfo = nullptr
-    };
-
-    result = vkBeginCommandBuffer(m_graphicsCommandBuffer, &beginInfo);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[Context] Could not begin graphics command buffer: " + std::to_string(result));
-    }
-
-    // User code here
-    rendererCallback(RenderDesc {
-        .commandBuffer = m_graphicsCommandBuffer,
-        .framebuffer = m_framebuffers[imageIndex],
-        .renderPass = m_renderPass
-    });
-
-    result = vkEndCommandBuffer(m_graphicsCommandBuffer);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[MainRenderer] Could not end graphics command buffer: " + std::to_string(result));
-    }
+    this->Render(rendererCallback, imageIndex);
 
     VkSemaphore waitSemaphores[] = { m_imageAvailableSemaphore };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -179,7 +154,33 @@ void Context::RenderUpdate(const std::function<void(const Context::RenderDesc&)>
     }
 }
 
+void Context::Render(const std::function<void(const Context::RenderDesc&)>& rendererCallback, uint32_t imageIndex) {
 
+	vkResetCommandBuffer(m_graphicsCommandBuffer, 0);
+
+    constexpr VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = 0,
+        .pInheritanceInfo = nullptr
+    };
+
+    VkResult result = vkBeginCommandBuffer(m_graphicsCommandBuffer, &beginInfo);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[Context] Could not begin graphics command buffer: " + std::to_string(result));
+    }
+
+    // User code here
+    rendererCallback(RenderDesc{
+        .commandBuffer = m_graphicsCommandBuffer,
+        .framebuffer = m_framebuffers[imageIndex],
+        .renderPass = m_renderPass
+    });
+
+    result = vkEndCommandBuffer(m_graphicsCommandBuffer);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("[Context] Could not end graphics command buffer: " + std::to_string(result));
+    }
+}
 
 
 void Context::InitializeWindow() {

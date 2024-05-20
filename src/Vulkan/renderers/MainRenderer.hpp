@@ -37,13 +37,37 @@ private:
 	{
 		glm::vec3 position;
 		int color;
-		glm::vec2 uv;
+	};
+
+	struct Transform
+	{
+		glm::vec4 translate;
+		glm::vec4 rotation;
+	};
+
+	struct Sprite
+	{
+		glm::vec2 topLeft;
+		glm::vec2 bottomRight;
+	};
+
+	struct MoveComponent
+	{
+		glm::vec4 offset;
+	};
+
+	struct Animation
+	{
+		uint32_t currentFrame;
+		uint32_t frameCount;
+		float delay;
 	};
 
 	struct InstanceData
 	{
 		glm::vec4 translate;
 		glm::vec4 rotation;
+		glm::vec4 uv;
 	};
 
 	void CreateUniformBuffers();
@@ -70,11 +94,16 @@ private:
 
 	std::unique_ptr<GenericBuffer> m_vertexBuffer;
 	std::unique_ptr<GenericBuffer> m_indexBuffer;
-
-	std::unique_ptr<GenericBuffer> m_instancedBuffer;
-	std::vector<MainRenderer::InstanceData> m_instances;
-
 	std::unique_ptr<GenericBuffer> m_uniformBuffer;
+	std::unique_ptr<GenericBuffer> m_instancedBuffer;
+
+	std::vector<InstanceData> m_instances;
+
+	std::vector<Transform> m_instanceTransforms;
+	std::vector<MoveComponent> m_instanceMoveComponents;
+
+	std::vector<Sprite> m_instanceSprites;
+	std::vector<Animation> m_instanceAnimations;
 
 	std::unique_ptr<Sampler> m_sampler;
 	std::unique_ptr<IRenderPipeline> m_mainRenderPipeline;

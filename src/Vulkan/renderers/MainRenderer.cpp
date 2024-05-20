@@ -31,7 +31,7 @@ MainRenderer::MainRenderer(const Context* context) {
 
     m_mainRenderPipeline = std::make_unique<MainRenderPipeline>(m_context, m_shaderLayout.get(), this->GetVertexFormat());
 
-    m_sampler = std::make_unique<Sampler>(m_context, "textures/Tree.png");
+    m_sampler = std::make_unique<Sampler>(m_context, "textures/Coin-sheet.png");
 
     m_shaderLayout->AttachBuffer("UniformBufferObject", m_uniformBuffer.get(), 0, m_uniformBuffer->GetBufferSize());
     m_shaderLayout->AttackSampler("texSampler", m_sampler.get());
@@ -72,8 +72,12 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
     };
 
     this->UpdateUniformBuffers();
-    this->UpdateInstances();
 
+    static bool updateInstances = true;
+    ImGui::Checkbox("Update instances", &updateInstances);
+    if (updateInstances) {
+		this->UpdateInstances();
+    }
 
     VkRenderPassBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -102,7 +106,6 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_mainRenderPipeline->GetVkPipeline());
 
 
-    // Learn about vkCmdBindVertexBuffers
     const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer(), m_instancedBuffer->GetVkBuffer() };
     constexpr VkDeviceSize offsets[] = { 0, 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 2, vertexBuffers, offsets);
@@ -110,7 +113,9 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
 
     m_shaderLayout->BindDescriptors(commandBuffer);
 
-    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(m_instances.size()), 0, 0, 0);
+    static int instanceCount = static_cast<int>(m_instanceTransforms.size());
+    ImGui::SliderInt("Instance Count", &instanceCount, 0, static_cast<int>(m_instanceTransforms.size()));
+    vkCmdDrawIndexed(commandBuffer, 6, instanceCount, 0, 0, 0);
 
 	ImGui::End();
     ImGui::Render();
@@ -165,13 +170,41 @@ void MainRenderer::DestroyUniformBuffers() {
 }
 
 void MainRenderer::CreateInstances() {
-    std::random_device rndDevice;
+
+	constexpr uint32_t instanceCount = 100000;
+    
+	std::random_device rndDevice;
     std::mt19937 rndEngine(rndDevice());
+
     std::uniform_real_distribution<> offsetDist(-100, 100);
     std::uniform_real_distribution<> zDist(-1, 1);
+    std::uniform_int_distribution<> animationDist(0, 2);
 
-    for (int ind = 0; ind < 100000; ind++) {
-        m_instances.emplace_back(InstanceData{ .translate = {offsetDist(rndEngine), offsetDist(rndEngine), zDist(rndEngine), 0}});
+    m_instances.resize(instanceCount);
+    m_instanceMoveComponents.resize(instanceCount);
+
+    m_instanceTransforms.reserve(instanceCount);
+    m_instanceSprites.reserve(instanceCount);
+    m_instanceAnimations.reserve(instanceCount);
+
+    for (uint32_t ind = 0; ind < instanceCount; ind++) {
+        m_instanceTransforms.push_back(Transform{
+            .translate = {
+                offsetDist(rndEngine), offsetDist(rndEngine), zDist(rndEngine), 0
+            },
+            .rotation = {}
+        });
+
+        m_instanceSprites.push_back(Sprite{
+            .topLeft = {0, 0},
+            .bottomRight = {1/8.0f, 1.0f}
+        });
+
+        m_instanceAnimations.push_back(Animation{
+            .currentFrame = static_cast<uint32_t>(animationDist(rndEngine)),
+            .frameCount = 8,
+            .delay = 0.6f
+        });
     }
 
     GenericBuffer::Desc desc = {
@@ -190,12 +223,18 @@ void MainRenderer::CreateInstances() {
 
 void MainRenderer::UpdateInstances() {
 
-    const auto currentTime = std::chrono::high_resolution_clock::now();
-
     for (size_t ind = 0; ind < m_instances.size(); ind++) {
 
+        m_instanceMoveComponents[ind].offset = glm::vec4(0, sin(ind + glfwGetTime()), 0, 0);
+        m_instanceAnimations[ind].currentFrame = static_cast<uint32_t>((static_cast<float>(glfwGetTime()) / m_instanceAnimations[ind].delay) * static_cast<float>(m_instanceAnimations[ind].frameCount)) + ind;
+        float animation = static_cast<float> (m_instanceAnimations[ind].currentFrame) / static_cast<float>(m_instanceAnimations[ind].frameCount);
+
         auto& instance = m_instances[ind];
-        instance.rotation.z += (ind % 2 ? -1 : 1) * ImGui::GetIO().DeltaTime;
+
+
+        instance.translate = m_instanceTransforms[ind].translate + m_instanceMoveComponents[ind].offset;
+        instance.rotation = m_instanceTransforms[ind].rotation;
+        instance.uv = glm::vec4(m_instanceSprites[ind].topLeft.x + animation, m_instanceSprites[ind].bottomRight.x + animation, m_instanceSprites[ind].topLeft.y, m_instanceSprites[ind].bottomRight.y);
     }
 
     std::memcpy(m_instancedBuffer->GetMappedMemory(), m_instances.data(), m_instances.size() * sizeof(InstanceData));
@@ -209,10 +248,10 @@ void MainRenderer::DestroyInstances() {
 
 void MainRenderer::CreateVertexBuffer() {
     const std::vector<MainRenderer::Vertex> vertices = {
-        {{-0.5f, -0.5f, 0.0f}, -1, {0.0, 0.0}},
-        {{-0.5f,  0.5f, 0.0f}, 0xFF03102, {0.0, 1.0}},
-        {{ 0.5f,  0.5f, 0.0f}, -1, {1.0, 1.0}},
-        {{ 0.5f, -0.5f, 0.0f}, 0xFF03102, {1.0, 0.0}},
+        {{-0.5f, -0.5f, 0.0f}, -1},
+        {{-0.5f,  0.5f, 0.0f}, 0xFF03102},
+        {{ 0.5f,  0.5f, 0.0f}, -1},
+        {{ 0.5f, -0.5f, 0.0f}, 0xFF03102},
     };
 
     LocalBuffer::Desc vertexDesc = {
@@ -262,6 +301,7 @@ MainRenderPipeline::VertexFormat MainRenderer::GetVertexFormat() const {
             }
         },
         .attributes = {
+            // Per Vertex
             VkVertexInputAttributeDescription{
 		        .location = 0,
 		        .binding = 0,
@@ -274,23 +314,25 @@ MainRenderPipeline::VertexFormat MainRenderer::GetVertexFormat() const {
 		        .format = VK_FORMAT_R8G8B8A8_UNORM,
 		        .offset = offsetof(Vertex, color)
 		    },
+
+            // Per Instance
 		    VkVertexInputAttributeDescription{
 		        .location = 2,
-		        .binding = 0,
-		        .format = VK_FORMAT_R32G32_SFLOAT,
-		        .offset = offsetof(Vertex, uv)
-		    },
-		    VkVertexInputAttributeDescription{
-		        .location = 3,
 		        .binding = 1,
 		        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
 		        .offset = offsetof(InstanceData, translate)
 		    },
 		    VkVertexInputAttributeDescription{
-		        .location = 4,
+		        .location = 3,
 		        .binding = 1,
 		        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
 		        .offset = offsetof(InstanceData, rotation)
+		    },
+		    VkVertexInputAttributeDescription{
+		        .location = 4,
+		        .binding = 1,
+		        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+		        .offset = offsetof(InstanceData, uv)
 		    }
         }
     };

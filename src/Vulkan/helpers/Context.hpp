@@ -87,7 +87,8 @@ public:
 
 private:
 
-    void RenderUpdate(const std::function<void(const Context::RenderDesc&)>& updateCallback);
+    void Update(const std::function<void(const Context::RenderDesc&)>& rendererCallback);
+    void Render(const std::function<void(const Context::RenderDesc&)>& rendererCallback, uint32_t imageIndex);
 
     void InitializeWindow();
     void DestroyWindow();

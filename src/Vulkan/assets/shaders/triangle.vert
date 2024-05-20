@@ -8,11 +8,11 @@ layout(binding = 0) uniform UniformBufferObject {
 // Vertex attributes
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec4 inColor;
-layout(location = 2) in vec2 inTexCoord;
 
 // Instances attributes
-layout(location = 3) in vec4 inTranslate;
-layout(location = 4) in vec4 inRotation;
+layout(location = 2) in vec4 inTranslate;
+layout(location = 3) in vec4 inRotation;
+layout(location = 4) in vec4 inUv;
 
 // Out
 layout(location = 0) out vec4 fragColor;
@@ -30,5 +30,5 @@ void main() {
 
     gl_Position = ubo.proj * ubo.view * modelMat * vec4(inPosition, 1.0);
     fragColor = inColor;
-    fragTexCoord = inTexCoord;
+    fragTexCoord = vec2(inUv[gl_VertexIndex / 2], inUv[2 + (((gl_VertexIndex + 1) % 4) / 2)]);
 }
