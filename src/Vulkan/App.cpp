@@ -6,7 +6,11 @@
 #include "renderers/MainRenderer.hpp"
 #include "renderers/MainRenderPass.hpp"
 
+#include <imgui.h>
+#include <backends/imgui_impl_vulkan.h>
+#include <backends/imgui_impl_glfw.h>
 
+#include "renderers/InstancedCoherentRenderer.hpp"
 
 App::App() {
 
@@ -29,7 +33,7 @@ App::App() {
     };
     m_context = std::make_unique<Context>(contextDesc);
 
-    m_renderer = std::make_unique<MainRenderer>(m_context.get());
+    OnInitializeRenderer();
 }
 
 void App::Run() {
@@ -53,11 +57,48 @@ void App::Destroy() {
 
 void App::Update(const Context::RenderDesc& desc) {
 
-    const VkExtent2D swapchainExtent = m_context->GetSwapchain()->GetExtent();
+    static float clearColor[4]{ 0.2f, 0.25f, 0.45f, 1.0f };
+    const VkClearValue clearValue = {
+		.color = {.float32 = {clearColor[0], clearColor[1], clearColor[2], clearColor[3]}}
+    };
+
+    const VkRenderPassBeginInfo info = {
+	    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+	    .renderPass = desc.renderPass->GetVkRenderPass(),
+	    .framebuffer = desc.framebuffer,
+	    .renderArea = {
+	        .offset = {0, 0},
+	        .extent = m_context->GetSwapchain()->GetExtent()
+    },
+	    .clearValueCount = 1,
+	    .pClearValues = &clearValue
+    };
+    vkCmdBeginRenderPass(desc.commandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
+
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+
+    bool open = true;
+    ImGui::Begin("Debug", &open);
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+    ImGui::ColorEdit3("Clear color", clearColor);
+
+    ImGui::ShowDemoWindow();
+
+    ImGui::Combo("Renderer", reinterpret_cast<int*>(&m_selectedRenderer), m_rendererLabels.data(), static_cast<int>(m_rendererLabels.size()));
+
+    ImGui::SameLine();
+    if (ImGui::Button("Initialize Renderer")) {
+        this->OnInitializeRenderer();
+    }
+
     const MainRenderer::RecordDesc recordDesc = {
         .renderArea = {
             .offset = {0, 0},
-            .extent = swapchainExtent
+            .extent = m_context->GetSwapchain()->GetExtent()
         },
         .commandBuffer = desc.commandBuffer,
         .renderPass = desc.renderPass,
@@ -65,5 +106,33 @@ void App::Update(const Context::RenderDesc& desc) {
     };
     m_renderer->Record(recordDesc);
 
+
+    ImGui::End();
+    ImGui::Render();
+    ImDrawData* imGuiDrawData = ImGui::GetDrawData();
+    const bool isMinimized = (imGuiDrawData->DisplaySize.x <= 0.0f || imGuiDrawData->DisplaySize.y <= 0.0f);
+    if (!isMinimized)
+    {
+        ImGui_ImplVulkan_RenderDrawData(imGuiDrawData, desc.commandBuffer);
+    }
+
+
+    vkCmdEndRenderPass(desc.commandBuffer);
+}
+
+void App::OnInitializeRenderer() {
+
+    if (m_renderer != nullptr) {
+		m_renderer->Destroy();
+    }
+
+    switch (m_selectedRenderer) {
+    case InstancedCoherentDefault:
+        m_renderer = std::make_unique<InstancedCoherentRenderer>(m_context.get());
+        m_renderer->Initialize("shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
+        break;
+    case InstancedCachedDefault:
+	    break;
+    }
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
@@ -9,23 +10,28 @@
 
 #include "MainRenderPipeline.hpp"
 #include "../helpers/IRenderer.hpp"
+#include "../helpers/textures/Sampler.hpp"
+#include "../helpers/ShaderLayout.hpp"
+#include "../helpers/Shader.hpp"
 
 class Context;
-class Shader;
-class ShaderLayout;
 class DeviceQueue;
 class GenericBuffer;
-class Sampler;
+class StagingBuffer;
 class IRenderPipeline;
 
 class MainRenderer : public IRenderer
 {
 public:
 
+	const uint32_t kMaxInstanceCount = 100000;
+
 	explicit MainRenderer(const Context* context);
+	void Initialize(const std::string& vertexShader, const std::string& fragmentShader) override;
 	void Destroy() override;
 	void Record(const MainRenderer::RecordDesc& desc) override;
-private:
+
+protected:
 
 	struct UniformBufferObject
 	{
@@ -63,19 +69,12 @@ private:
 		float delay;
 	};
 
-	struct InstanceData
-	{
-		glm::vec4 translate;
-		glm::vec4 rotation;
-		glm::vec4 uv;
-	};
-
 	void CreateUniformBuffers();
 	void UpdateUniformBuffers() const;
 	void DestroyUniformBuffers();
 
-	void CreateInstances();
-	void UpdateInstances();
+	virtual void CreateInstances() = 0;
+	virtual void UpdateInstances(uint32_t instanceCount) = 0;
 	void DestroyInstances();
 
 	void CreateVertexBuffer();
@@ -84,7 +83,7 @@ private:
 	void CreateIndexBuffer();
 	void DestroyIndexBuffer();
 
-	MainRenderPipeline::VertexFormat GetVertexFormat() const;
+	virtual MainRenderPipeline::VertexFormat GetVertexFormat() const = 0;
 
 	const Context* m_context;
 
@@ -96,8 +95,6 @@ private:
 	std::unique_ptr<GenericBuffer> m_indexBuffer;
 	std::unique_ptr<GenericBuffer> m_uniformBuffer;
 	std::unique_ptr<GenericBuffer> m_instancedBuffer;
-
-	std::vector<InstanceData> m_instances;
 
 	std::vector<Transform> m_instanceTransforms;
 	std::vector<MoveComponent> m_instanceMoveComponents;

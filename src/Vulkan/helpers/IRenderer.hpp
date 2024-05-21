@@ -17,6 +17,8 @@ public:
 	};
 
 	virtual ~IRenderer() = default;
+
+	virtual void Initialize(const std::string& vertexShader, const std::string& fragmentShader) = 0;
 	virtual void Destroy() = 0;
 
 	virtual void Record(const IRenderer::RecordDesc& desc) = 0;

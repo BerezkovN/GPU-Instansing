@@ -1,24 +1,24 @@
 #include "MainRenderer.hpp"
 
 #include <imgui.h>
-#include <backends/imgui_impl_vulkan.h>
-#include <backends/imgui_impl_glfw.h>
 
 #include "MainRenderPipeline.hpp"
 
 #include "../pch.hpp"
 #include "../App.hpp"
 #include "../helpers/buffers/LocalBuffer.hpp"
+#include "../helpers/buffers/StagingBuffer.hpp"
 #include "../helpers/textures/Sampler.hpp"
 #include "../helpers/Shader.hpp"
 #include "../helpers/ShaderLayout.hpp"
-#include "../helpers/IRenderPass.hpp"
 
 
 MainRenderer::MainRenderer(const Context* context) {
 
     m_context = context;
+}
 
+void MainRenderer::Initialize(const std::string& vertexShader, const std::string& fragmentShader) {
     this->CreateVertexBuffer();
     this->CreateIndexBuffer();
     this->CreateUniformBuffers();
@@ -56,37 +56,16 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
 
     const VkCommandBuffer commandBuffer = desc.commandBuffer;
 
-    static float clearColor[4] { 0.2f, 0.25f, 0.45f, 1.0f };
-
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    bool open = true;
-	ImGui::Begin("Debug", &open);
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-
-    ImGui::ColorEdit3("Clear color", clearColor);
-    const VkClearValue clearValue = {
-        .color = {.float32 = {clearColor[0], clearColor[1], clearColor[2], clearColor[3]}}
-    };
-
-    this->UpdateUniformBuffers();
-
     static bool updateInstances = true;
+    static int instanceCount = static_cast<int>(m_instanceTransforms.size());
+
+	this->UpdateUniformBuffers();
+
     ImGui::Checkbox("Update instances", &updateInstances);
     if (updateInstances) {
-		this->UpdateInstances();
+		this->UpdateInstances(instanceCount);
     }
-
-    VkRenderPassBeginInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    info.renderPass = desc.renderPass->GetVkRenderPass();
-    info.framebuffer = desc.framebuffer;
-    info.renderArea = desc.renderArea;
-    info.clearValueCount = 1;
-    info.pClearValues = &clearValue;
-    vkCmdBeginRenderPass(desc.commandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
+    ImGui::SliderInt("Instance Count", &instanceCount, 0, static_cast<int>(m_instanceTransforms.size()));
 
     const VkViewport viewport = {
         .x = 0, .y = 0,
@@ -113,20 +92,7 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
 
     m_shaderLayout->BindDescriptors(commandBuffer);
 
-    static int instanceCount = static_cast<int>(m_instanceTransforms.size());
-    ImGui::SliderInt("Instance Count", &instanceCount, 0, static_cast<int>(m_instanceTransforms.size()));
     vkCmdDrawIndexed(commandBuffer, 6, instanceCount, 0, 0, 0);
-
-	ImGui::End();
-    ImGui::Render();
-    ImDrawData* imGuiDrawData = ImGui::GetDrawData();
-    const bool isMinimized = (imGuiDrawData->DisplaySize.x <= 0.0f || imGuiDrawData->DisplaySize.y <= 0.0f);
-    if (!isMinimized)
-    {
-        ImGui_ImplVulkan_RenderDrawData(imGuiDrawData, commandBuffer);
-    }
-
-    vkCmdEndRenderPass(commandBuffer);
 }
 
 void MainRenderer::CreateUniformBuffers() {
@@ -169,76 +135,6 @@ void MainRenderer::DestroyUniformBuffers() {
     m_uniformBuffer = nullptr;
 }
 
-void MainRenderer::CreateInstances() {
-
-	constexpr uint32_t instanceCount = 100000;
-    
-	std::random_device rndDevice;
-    std::mt19937 rndEngine(rndDevice());
-
-    std::uniform_real_distribution<> offsetDist(-100, 100);
-    std::uniform_real_distribution<> zDist(-1, 1);
-    std::uniform_int_distribution<> animationDist(0, 2);
-
-    m_instances.resize(instanceCount);
-    m_instanceMoveComponents.resize(instanceCount);
-
-    m_instanceTransforms.reserve(instanceCount);
-    m_instanceSprites.reserve(instanceCount);
-    m_instanceAnimations.reserve(instanceCount);
-
-    for (uint32_t ind = 0; ind < instanceCount; ind++) {
-        m_instanceTransforms.push_back(Transform{
-            .translate = {
-                offsetDist(rndEngine), offsetDist(rndEngine), zDist(rndEngine), 0
-            },
-            .rotation = {}
-        });
-
-        m_instanceSprites.push_back(Sprite{
-            .topLeft = {0, 0},
-            .bottomRight = {1/8.0f, 1.0f}
-        });
-
-        m_instanceAnimations.push_back(Animation{
-            .currentFrame = static_cast<uint32_t>(animationDist(rndEngine)),
-            .frameCount = 8,
-            .delay = 0.6f
-        });
-    }
-
-    GenericBuffer::Desc desc = {
-        .bufferCreateInfo = VkBufferCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = m_instances.size() * sizeof(InstanceData),
-            .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        },
-        .memoryProperty = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-    };
-
-    m_instancedBuffer = std::make_unique<GenericBuffer>(m_context, desc);
-    m_instancedBuffer->MapMemory(m_instancedBuffer->GetBufferSize());
-}
-
-void MainRenderer::UpdateInstances() {
-
-    for (size_t ind = 0; ind < m_instances.size(); ind++) {
-
-        m_instanceMoveComponents[ind].offset = glm::vec4(0, sin(ind + glfwGetTime()), 0, 0);
-        m_instanceAnimations[ind].currentFrame = static_cast<uint32_t>((static_cast<float>(glfwGetTime()) / m_instanceAnimations[ind].delay) * static_cast<float>(m_instanceAnimations[ind].frameCount)) + ind;
-        float animation = static_cast<float> (m_instanceAnimations[ind].currentFrame) / static_cast<float>(m_instanceAnimations[ind].frameCount);
-
-        auto& instance = m_instances[ind];
-
-
-        instance.translate = m_instanceTransforms[ind].translate + m_instanceMoveComponents[ind].offset;
-        instance.rotation = m_instanceTransforms[ind].rotation;
-        instance.uv = glm::vec4(m_instanceSprites[ind].topLeft.x + animation, m_instanceSprites[ind].bottomRight.x + animation, m_instanceSprites[ind].topLeft.y, m_instanceSprites[ind].bottomRight.y);
-    }
-
-    std::memcpy(m_instancedBuffer->GetMappedMemory(), m_instances.data(), m_instances.size() * sizeof(InstanceData));
-}
 
 void MainRenderer::DestroyInstances() {
 
@@ -284,56 +180,4 @@ void MainRenderer::CreateIndexBuffer() {
 void MainRenderer::DestroyIndexBuffer() {
     m_indexBuffer->Destroy();
     m_indexBuffer = nullptr;
-}
-
-MainRenderPipeline::VertexFormat MainRenderer::GetVertexFormat() const {
-    return {
-        .bindings = {
-            VkVertexInputBindingDescription {
-                .binding = 0,
-                .stride = sizeof(Vertex),
-                .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
-            },
-            VkVertexInputBindingDescription {
-                .binding = 1,
-                .stride = sizeof(InstanceData),
-                .inputRate = VK_VERTEX_INPUT_RATE_INSTANCE
-            }
-        },
-        .attributes = {
-            // Per Vertex
-            VkVertexInputAttributeDescription{
-		        .location = 0,
-		        .binding = 0,
-		        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-		        .offset = offsetof(Vertex, position)
-		    },
-		    VkVertexInputAttributeDescription{
-		        .location = 1,
-		        .binding = 0,
-		        .format = VK_FORMAT_R8G8B8A8_UNORM,
-		        .offset = offsetof(Vertex, color)
-		    },
-
-            // Per Instance
-		    VkVertexInputAttributeDescription{
-		        .location = 2,
-		        .binding = 1,
-		        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-		        .offset = offsetof(InstanceData, translate)
-		    },
-		    VkVertexInputAttributeDescription{
-		        .location = 3,
-		        .binding = 1,
-		        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-		        .offset = offsetof(InstanceData, rotation)
-		    },
-		    VkVertexInputAttributeDescription{
-		        .location = 4,
-		        .binding = 1,
-		        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-		        .offset = offsetof(InstanceData, uv)
-		    }
-        }
-    };
 }
