@@ -9,6 +9,7 @@ set(SLANG_DIR "${THIRD_PARTY_DIR}/slang")
 set(SPDLOG_DIR "${THIRD_PARTY_DIR}/spdlog")
 set(STB_IMAGE_DIR "${THIRD_PARTY_DIR}/stb_image")
 set(SPIRV_CROSS_DIR "${THIRD_PARTY_DIR}/SPIRV-Cross")
+set(TRACY_DIR "${THIRD_PARTY_DIR}/tracy")
 
 # Vulkan
 if (NOT TARGET Vulkan::Headers)
@@ -80,3 +81,10 @@ set(SPIRV_CROSS_ENABLE_C_API    OFF CACHE BOOL "Enable C API wrapper support in 
 add_subdirectory(${SPIRV_CROSS_DIR})
 set(SPIRV_CROSS_INCLUDE_DIRS "${SPRIV_CROSS_DIR}/include")
 set(SPIRV_CROSS_LIBRARIES spirv-cross-core)
+
+# Tracy
+set(TRACY_ENABLE    ON CACHE BOOL "")
+set(TRACY_ON_DEMAND ON CACHE BOOL "")
+add_subdirectory(${TRACY_DIR})
+set(TRACY_INCLUDE_DIRS "${TRACY_DIR}/public")
+set(TRACY_LIBRARIES Tracy::TracyClient)

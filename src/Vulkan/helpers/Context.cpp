@@ -4,6 +4,8 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
+#include <tracy/Tracy.hpp>
+
 #include "IRenderPass.hpp"
 #include "../pch.hpp"
 
@@ -88,7 +90,14 @@ void Context::HintWindowResize() {
 
 void Context::Update(const std::function<void(const Context::RenderDesc&)>& rendererCallback) {
 
+
+    ZoneScoped;
     vkWaitForFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFence, VK_TRUE, UINT64_MAX);
+
+    // I think that it's logical to mark the frame after synchronization.
+    tracy::Profiler::SendFrameMark(nullptr);
+
+	ZoneNamedN(acquireZone, "Acquire image", true);
 
     uint32_t imageIndex;
     if (m_mustResize) {
@@ -132,6 +141,7 @@ void Context::Update(const std::function<void(const Context::RenderDesc&)>& rend
     };
 
 
+    ZoneNamedN(submitZone, "Graphics queue submit", true);
     result = vkQueueSubmit(m_graphicsQueue->GetVkQueue(), 1, &submitInfo, m_submitFrameFence);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("[MainRenderPipeline] Error submitting a graphics queue: " + std::to_string(result));
@@ -147,6 +157,8 @@ void Context::Update(const std::function<void(const Context::RenderDesc&)>& rend
         .pSwapchains = &swapchain,
         .pImageIndices = &imageIndex
     };
+
+    ZoneNamedN(presentZone, "Graphics queue present", true);
 
     result = vkQueuePresentKHR(m_graphicsQueue->GetVkQueue(), &presentInfo);
     if (result != VK_SUCCESS) {

@@ -10,7 +10,11 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyVulkan.hpp>
+
 #include "renderers/InstancedCoherentRenderer.hpp"
+#include "renderers/InstancedCachedRenderer.hpp"
 
 App::App() {
 
@@ -116,7 +120,6 @@ void App::Update(const Context::RenderDesc& desc) {
         ImGui_ImplVulkan_RenderDrawData(imGuiDrawData, desc.commandBuffer);
     }
 
-
     vkCmdEndRenderPass(desc.commandBuffer);
 }
 
@@ -132,6 +135,8 @@ void App::OnInitializeRenderer() {
         m_renderer->Initialize("shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
         break;
     case InstancedCachedDefault:
+        m_renderer = std::make_unique<InstancedCachedRenderer>(m_context.get());
+        m_renderer->Initialize("shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
 	    break;
     }
 }

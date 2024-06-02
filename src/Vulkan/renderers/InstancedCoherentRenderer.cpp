@@ -3,6 +3,8 @@
 #include "../pch.hpp"
 #include "../helpers/buffers/GenericBuffer.hpp"
 
+#include <tracy/Tracy.hpp>
+
 
 InstancedCoherentRenderer::InstancedCoherentRenderer(const Context* context) : MainRenderer(context) {}
 
@@ -55,21 +57,59 @@ void InstancedCoherentRenderer::CreateInstances() {
     m_instancedBuffer->MapMemory(m_instancedBuffer->GetBufferSize());
 }
 
+constexpr std::size_t constexpr_strlen(const char* str) {
+    return *str ? 1 + constexpr_strlen(str + 1) : 0;
+}
+
 void InstancedCoherentRenderer::UpdateInstances(uint32_t instanceCount) {
+
+    ZoneScoped;
+
+    auto start = tracy::Profiler::GetTime();
+    long long updateComponentsTimer = 0;
+    long long packTimer = 0;
+    long long writeTimer = 0;
+
+	InstanceData data{};
+
+    start = tracy::Profiler::GetTime();
+    for (size_t ind = 0; ind < instanceCount; ind++) {
+        m_instanceMoveComponents[ind].offset = glm::vec4(0, sin(ind + glfwGetTime()), 0, 0);
+        m_instanceAnimations[ind].currentFrame = static_cast<uint32_t>((static_cast<float>(glfwGetTime()) / m_instanceAnimations[ind].delay) * static_cast<float>(m_instanceAnimations[ind].frameCount)) + ind;
+    }
+
+    updateComponentsTimer += tracy::Profiler::GetTime() - start;
+
 
     for (size_t ind = 0; ind < instanceCount; ind++) {
 
-        m_instanceMoveComponents[ind].offset = glm::vec4(0, sin(ind + glfwGetTime()), 0, 0);
-        m_instanceAnimations[ind].currentFrame = static_cast<uint32_t>((static_cast<float>(glfwGetTime()) / m_instanceAnimations[ind].delay) * static_cast<float>(m_instanceAnimations[ind].frameCount)) + ind;
+        start = tracy::Profiler::GetTime();
+
         const float animation = static_cast<float> (m_instanceAnimations[ind].currentFrame) / static_cast<float>(m_instanceAnimations[ind].frameCount);
-
         InstanceData* instances = static_cast<InstanceData*>(m_instancedBuffer->GetMappedMemory());
-        auto& instance = instances[ind];
+        data.translate = m_instanceTransforms[ind].translate + m_instanceMoveComponents[ind].offset;
+        data.rotation = m_instanceTransforms[ind].rotation;
+        data.uv = glm::vec4(m_instanceSprites[ind].topLeft.x + animation, m_instanceSprites[ind].bottomRight.x + animation, m_instanceSprites[ind].topLeft.y, m_instanceSprites[ind].bottomRight.y);
 
-        instance.translate = m_instanceTransforms[ind].translate + m_instanceMoveComponents[ind].offset;
-        instance.rotation = m_instanceTransforms[ind].rotation;
-        instance.uv = glm::vec4(m_instanceSprites[ind].topLeft.x + animation, m_instanceSprites[ind].bottomRight.x + animation, m_instanceSprites[ind].topLeft.y, m_instanceSprites[ind].bottomRight.y);
+        packTimer += tracy::Profiler::GetTime() - start;
+        start = tracy::Profiler::GetTime();
+
+        instances[ind] = data;
+
+        writeTimer += tracy::Profiler::GetTime() - start;
     }
+
+    auto updateComponentsText = "Update components";
+    ZoneText(updateComponentsText, constexpr_strlen(updateComponentsText));
+    ZoneValue(updateComponentsTimer / 1000000);
+
+    auto packText = "Packing";
+    ZoneText(packText, constexpr_strlen(packText));
+    ZoneValue(packTimer / 1000000);
+
+    auto writeText = "Write";
+    ZoneText(writeText, constexpr_strlen(writeText));
+    ZoneValue(writeTimer / 1000000.0);
 }
 
 

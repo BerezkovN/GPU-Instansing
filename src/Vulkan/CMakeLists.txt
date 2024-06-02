@@ -16,6 +16,7 @@ target_include_directories(VulkanGPUInstancing PUBLIC
 	${SPDLOG_INCLUDE_DIRS}
 	${STB_IMAGE_INCLUDE_DIRS}
 	${SPIRV_CROSS_INCLUDE_DIRS}
+	${TRACY_INCLUDE_DIRS}
 )
 
 target_link_libraries(VulkanGPUInstancing PUBLIC
@@ -26,6 +27,7 @@ target_link_libraries(VulkanGPUInstancing PUBLIC
 	${SPDLOG_LIBRARIES}
 	${STB_IMAGE_LIBRARIES}
 	${SPIRV_CROSS_LIBRARIES}
+	${TRACY_LIBRARIES}
 )
 
 target_compile_definitions(VulkanGPUInstancing PRIVATE IDE_ASSET_FOLDER="${CMAKE_CURRENT_SOURCE_DIR}/assets")
