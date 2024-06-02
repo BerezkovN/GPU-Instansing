@@ -392,7 +392,7 @@ void Context::ChooseMainDevice() {
         auto deviceID = Device::CalculateID(deviceProperties);
         deviceIDs.push_back(deviceID);
 
-        auto deviceName = vk_to_string(deviceProperties.deviceType);
+        auto deviceName = VkHelper::DeviceTypeToString(deviceProperties.deviceType);
         spdlog::info("\t[{}] {}: {}. ID: {}",
             index, deviceName,
             deviceProperties.deviceName, deviceID);
@@ -611,7 +611,7 @@ std::vector<const char*> Context::GetVulkanValidationLayers() const {
     }
 
     std::string missingLayer;
-    const bool support = does_contain_names<VkLayerProperties>(m_config->vkValidationLayers, supportedLayers,
+    const bool support = VkHelper::DoesContainNames<VkLayerProperties>(m_config->vkValidationLayers, supportedLayers,
         [](auto& layerProperty) { return layerProperty.layerName; },
         missingLayer);
 

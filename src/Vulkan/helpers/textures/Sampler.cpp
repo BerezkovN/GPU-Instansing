@@ -207,11 +207,9 @@ void Sampler::AllocateImage(VkMemoryPropertyFlags memoryProperty) {
 	const VkMemoryAllocateInfo memoryAllocateInfo = {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		.allocationSize = memoryRequirements.size,
-		// TODO: Learn more about this
 		.memoryTypeIndex = this->FindMemoryType(memoryRequirements.memoryTypeBits, memoryProperty)
 	};
 
-	// TODO: Learn about VMA
 	const VkResult result = vkAllocateMemory(m_context->GetDevice()->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_imageMemory);
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("[Sampler] Could not allocate memory for the vertex buffer");

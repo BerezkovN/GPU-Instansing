@@ -7,6 +7,7 @@
 #include <volk.h>
 
 #include "DeviceQueue.hpp"
+#include "DeviceMemory.hpp"
 
 class Context;
 class Surface;
@@ -33,12 +34,13 @@ public:
 
     // Factory
     static std::unique_ptr<Device> FindDevice(const Context* app, DeviceID deviceID);
+	void Destroy();
 
-    void Destroy();
+	void WaitIdle() const;
 
-    void WaitIdle() const;
-    bool DoesSupportRendering(const Surface* surface);
-    bool DoesSupportExtension(const std::string& extensionName);
+    [[nodiscard]] bool DoesSupportRendering(const Surface* surface) const;
+    [[nodiscard]] bool DoesSupportExtension(const std::string& extensionName) const;
+    [[nodiscard]] bool IsExtensionEnabled(const std::string& extensionName) const;
 
 	/**
 	 * \param surface You must pass a surface if the queue type is Graphics.
@@ -57,18 +59,21 @@ private:
     uint32_t FindGraphicsQueueFamilyIndex(const Surface* surface) const;
 	uint32_t FindTransferQueueFamilyIndex() const;
 
-    const Context* m_context;
+    const Context* m_context{};
 
-    VkPhysicalDevice m_physicalDevice;
+    std::vector<const char*> m_enabledExtensions;
+
+    VkPhysicalDevice m_physicalDevice{};
     VkPhysicalDeviceProperties m_physicalDeviceProperties;
     VkPhysicalDeviceFeatures m_physicalDeviceFeatures;
 
     std::vector<VkExtensionProperties> m_supportedExtensions;
 
     std::vector<VkQueueFamilyProperties> m_queueFamilyProperties;
-
     typedef std::vector<std::shared_ptr<DeviceQueue>> QueueFamily;
 	std::vector<QueueFamily> m_queueFamilies;
 
-    VkDevice m_logicalDevice;
+    std::unique_ptr<DeviceMemory> m_memory;
+
+    VkDevice m_logicalDevice{};
 };

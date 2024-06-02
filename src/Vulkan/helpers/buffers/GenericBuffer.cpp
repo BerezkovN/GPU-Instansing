@@ -124,7 +124,7 @@ void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryProperty) {
 uint32_t GenericBuffer::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
     VkPhysicalDeviceMemoryProperties memoryProperties;
     vkGetPhysicalDeviceMemoryProperties(m_context->GetDevice()->GetVkPhysicalDevice(), &memoryProperties);
-    
+
     for (uint32_t ind = 0; ind < memoryProperties.memoryTypeCount; ind++) {
         if (typeFilter & (1 << ind) && (memoryProperties.memoryTypes[ind].propertyFlags & properties)) {
             return ind;

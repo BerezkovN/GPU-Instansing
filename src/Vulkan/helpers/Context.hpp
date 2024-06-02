@@ -16,6 +16,8 @@ class IRenderer;
 
 class Context
 {
+    // Helps hiding some fields from being exposed to the API.
+    friend class Device;
 
 public:
 
@@ -122,6 +124,15 @@ private:
     std::shared_ptr<Config> m_config{};
 	IRenderPass* m_renderPass{};
 
+    /**
+     * The extensions that the default context expects you to have.
+     * But the lack of the extension won't crash the app.
+     */
+    std::vector<const char*> m_essentialDeviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_MEMORY_BUDGET_EXTENSION_NAME
+    };
+
     GLFWwindow* m_window{};
     VkInstance m_instance{};
 
@@ -140,7 +151,7 @@ private:
 
     std::optional<std::shared_ptr<DeviceQueue>> m_transferQueue{};
     std::optional<VkCommandPool> m_transferCommandPool;
-    VkCommandBuffer m_transferCommandBuffer; // Could be from the graphics command pool
+    VkCommandBuffer m_transferCommandBuffer{}; // Could be from the graphics command pool
 
 
     /* * *
@@ -151,5 +162,5 @@ private:
     VkFence m_submitFrameFence{};
 
 
-    VkDescriptorPool m_imguiDescriptorPool;
+    VkDescriptorPool m_imguiDescriptorPool{};
 };

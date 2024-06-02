@@ -4,6 +4,7 @@
 
 #include "Context.hpp"
 #include "Surface.hpp"
+#include "DeviceMemory.hpp"
 
 #include "VkHelper.hpp"
 
@@ -56,11 +57,12 @@ Device::Device(const Context* context, VkPhysicalDevice physicalDevice) {
     spdlog::info("[Device] Supported queue families:");
     for (const auto& queueFamily : m_queueFamilyProperties) {
 
-    	auto queueFlagName = vk_to_string(queueFamily.queueFlags);
+        auto queueFlagName = VkHelper::QueueFlagsToString(queueFamily.queueFlags);
 
-        spdlog::info("\tQueue count: {}", queueFamily.queueCount);
-        spdlog::info("\tQueue flags: {}", queueFlagName);
+        spdlog::info("[Device] \tQueue count: {}", queueFamily.queueCount);
+        spdlog::info("[Device] \tQueue flags: {}", queueFlagName);
     }
+    spdlog::info("");
 
     // Initialized later.
     m_logicalDevice = VK_NULL_HANDLE;
@@ -117,7 +119,7 @@ void Device::WaitIdle() const {
     vkDeviceWaitIdle(m_logicalDevice);
 }
 
-bool Device::DoesSupportRendering(const Surface* surface) {
+bool Device::DoesSupportRendering(const Surface* surface) const {
 
     if (!this->DoesSupportExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
         return false;
@@ -131,7 +133,7 @@ bool Device::DoesSupportRendering(const Surface* surface) {
     return true;
 }
 
-bool Device::DoesSupportExtension(const std::string& extensionName) {
+bool Device::DoesSupportExtension(const std::string& extensionName) const {
 
     const auto condition = [extensionName](const VkExtensionProperties& property) { return extensionName == property.extensionName; };
 	const bool support = std::ranges::find_if(m_supportedExtensions, condition) != m_supportedExtensions.end();
@@ -141,6 +143,12 @@ bool Device::DoesSupportExtension(const std::string& extensionName) {
     }
 
     return support;
+}
+
+bool Device::IsExtensionEnabled(const std::string& extensionName) const {
+
+    auto condition = [&](const char* enabledExtension) { return extensionName == enabledExtension; };
+    return std::ranges::find_if(m_enabledExtensions, condition) != m_enabledExtensions.end();
 }
 
 std::optional<std::shared_ptr<DeviceQueue>> Device::AddQueue(const DeviceQueue::Type queueType, float priority, const Surface* surface) {
@@ -195,14 +203,31 @@ void Device::Initialize() {
         graphicsQueueInfos.push_back(info);
     }
 
+
+    // I'm not planning on modifying the config's device extension field. It makes it quite unpredictable.
+    m_enabledExtensions = m_context->GetConfig()->vkDeviceExtensions;
+
+    for (const auto essentialExtension: m_context->m_essentialDeviceExtensions) {
+
+        auto condition = [&](const char* enabledExtension)
+        {
+	        return std::strcmp(enabledExtension, essentialExtension) == 0;
+        };
+
+        // Do not include the essential extension if the extension was already added to the config.
+    	if (std::ranges::find_if(m_enabledExtensions, condition) == m_enabledExtensions.end()) {
+            m_enabledExtensions.push_back(essentialExtension);
+    	}
+    }
+
     VkPhysicalDeviceFeatures deviceFeatures{};
 
     const VkDeviceCreateInfo deviceCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .queueCreateInfoCount = static_cast<uint32_t>(graphicsQueueInfos.size()),
             .pQueueCreateInfos = graphicsQueueInfos.data(),
-            .enabledExtensionCount = static_cast<uint32_t>(m_context->GetConfig()->vkDeviceExtensions.size()),
-            .ppEnabledExtensionNames = m_context->GetConfig()->vkDeviceExtensions.data(),
+            .enabledExtensionCount = static_cast<uint32_t>(m_enabledExtensions.size()),
+            .ppEnabledExtensionNames = m_enabledExtensions.data(),
             .pEnabledFeatures = &deviceFeatures
     };
 
@@ -225,6 +250,8 @@ void Device::Initialize() {
             queue->Initialize(vkQueue);
         }
     }
+
+    m_memory = std::make_unique<DeviceMemory>(this);
 }
 
 Device::SurfaceCapabilities Device::QuerySurfaceCapabilities(const Surface* surface) const {

@@ -10,9 +10,6 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
-#include <tracy/Tracy.hpp>
-#include <tracy/TracyVulkan.hpp>
-
 #include "renderers/InstancedCoherentRenderer.hpp"
 #include "renderers/InstancedCachedRenderer.hpp"
 
@@ -24,7 +21,6 @@ App::App() {
 
     const auto config = std::make_shared <Context::Config>();
     config->vkValidationLayers.push_back("VK_LAYER_KHRONOS_validation");
-    config->vkDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     config->vkPreferredSurfaceFormat = VK_FORMAT_B8G8R8A8_SRGB;
     config->vkPreferredSurfaceColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     config->vkPreferredPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;

@@ -9,6 +9,7 @@
 #include <numeric>
 #include <optional>
 #include <random>
+#include <format>
 
 // Using volk instead of vulkan/vulkan.h
 #include <volk.h>
