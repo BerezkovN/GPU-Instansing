@@ -12,4 +12,3 @@ project(GPUInstancing LANGUAGES CXX)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/third_party.cmake")
 
 add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/src/Vulkan/")
-add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/src/GFX/")
