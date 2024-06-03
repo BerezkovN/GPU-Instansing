@@ -11,6 +11,7 @@
 #include <backends/imgui_impl_glfw.h>
 
 #include "renderers/InstancedRenderer.hpp"
+#include "renderers/InstancedRendererChunked.hpp"
 #include "renderers/MainComponentSystem.hpp"
 
 App::App() {
@@ -128,6 +129,10 @@ void App::OnInitializeRenderer() {
     switch (m_selectedRenderer) {
     case Instanced:
         m_renderer = std::make_unique<InstancedRenderer>(m_context.get(), dynamic_cast<MainComponentSystem*>(m_componentSystem.get()));
+        m_renderer->Initialize("shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
+        break;
+    case InstancedChunked:
+        m_renderer = std::make_unique<InstancedRendererChunked>(m_context.get(), dynamic_cast<MainComponentSystem*>(m_componentSystem.get()));
         m_renderer->Initialize("shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
         break;
     }

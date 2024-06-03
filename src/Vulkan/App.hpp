@@ -34,12 +34,14 @@ private:
 	std::unique_ptr<IComponentSystem> m_componentSystem;
 
 	std::vector<const char*> m_rendererLabels{
-		"Instanced"
+		"Instanced",
+		"Instanced Chunked",
 	};
 
 	enum Renderers
 	{
 		Instanced,
+		InstancedChunked,
 	};
 	Renderers m_selectedRenderer = Instanced;
 };
