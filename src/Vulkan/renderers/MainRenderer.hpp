@@ -44,7 +44,7 @@ protected:
 		int color;
 	};
 
-	virtual void BindBuffers(VkCommandBuffer commandBuffer);
+	virtual void Draw(VkCommandBuffer commandBuffer) = 0;
 	virtual void UpdateBuffers();
 
 	void CreateUniformBuffers();
@@ -68,7 +68,7 @@ protected:
 
 	std::unique_ptr<GenericBuffer> m_vertexBuffer;
 	std::unique_ptr<GenericBuffer> m_indexBuffer;
-	std::unique_ptr<GenericBuffer> m_uniformBuffer;
+	std::unique_ptr<GenericBuffer> m_uniformMatrixBuffer;
 
 	std::unique_ptr<Sampler> m_sampler;
 	std::unique_ptr<IRenderPipeline> m_mainRenderPipeline;

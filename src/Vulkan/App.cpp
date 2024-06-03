@@ -10,6 +10,7 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
+#include "renderers/DefaultRenderer.hpp"
 #include "renderers/InstancedRenderer.hpp"
 #include "renderers/InstancedRendererChunked.hpp"
 #include "renderers/MainComponentSystem.hpp"
@@ -127,13 +128,17 @@ void App::OnInitializeRenderer() {
     }
 
     switch (m_selectedRenderer) {
+    case Default:
+        m_renderer = std::make_unique<DefaultRenderer>(m_context.get(), dynamic_cast<MainComponentSystem*>(m_componentSystem.get()));
+        m_renderer->Initialize("shaders/default.vert.spv", "shaders/default.frag.spv");
+        break;
     case Instanced:
         m_renderer = std::make_unique<InstancedRenderer>(m_context.get(), dynamic_cast<MainComponentSystem*>(m_componentSystem.get()));
-        m_renderer->Initialize("shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
+        m_renderer->Initialize("shaders/instanced.vert.spv", "shaders/instanced.frag.spv");
         break;
     case InstancedChunked:
         m_renderer = std::make_unique<InstancedRendererChunked>(m_context.get(), dynamic_cast<MainComponentSystem*>(m_componentSystem.get()));
-        m_renderer->Initialize("shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
+        m_renderer->Initialize("shaders/instanced.vert.spv", "shaders/instanced.frag.spv");
         break;
     }
 }

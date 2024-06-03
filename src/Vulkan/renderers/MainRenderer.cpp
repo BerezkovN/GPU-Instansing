@@ -26,8 +26,8 @@ void MainRenderer::Initialize(const std::string& vertexShader, const std::string
     this->CreateIndexBuffer();
     this->CreateUniformBuffers();
 
-    m_vertexShader = std::make_unique<Shader>(m_context->GetDevice(), "shaders/triangle.vert.spv", Shader::Type::Vertex);
-    m_fragmentShader = std::make_unique<Shader>(m_context->GetDevice(), "shaders/triangle.frag.spv", Shader::Type::Fragment);
+    m_vertexShader = std::make_unique<Shader>(m_context->GetDevice(), vertexShader, Shader::Type::Vertex);
+    m_fragmentShader = std::make_unique<Shader>(m_context->GetDevice(), fragmentShader, Shader::Type::Fragment);
 
     m_shaderLayout = std::make_unique<ShaderLayout>(m_context->GetDevice(), m_vertexShader.get(), m_fragmentShader.get());
 
@@ -35,8 +35,8 @@ void MainRenderer::Initialize(const std::string& vertexShader, const std::string
 
     m_sampler = std::make_unique<Sampler>(m_context, "textures/Coin-sheet.png");
 
-    m_shaderLayout->AttachBuffer("UniformBufferObject", m_uniformBuffer.get(), 0, m_uniformBuffer->GetBufferSize());
-    m_shaderLayout->AttackSampler("texSampler", m_sampler.get());
+    m_shaderLayout->AttachBuffer("Matrices", m_uniformMatrixBuffer.get(), 0, m_uniformMatrixBuffer->GetBufferSize());
+    m_shaderLayout->AttackSampler("DiffuseSampler", m_sampler.get());
 }
 
 void MainRenderer::Destroy() {
@@ -84,18 +84,9 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_mainRenderPipeline->GetVkPipeline());
 
-    this->BindBuffers(commandBuffer);
     m_shaderLayout->BindDescriptors(commandBuffer);
 
-    vkCmdDrawIndexed(commandBuffer, 6, entityCount, 0, 0, 0);
-}
-
-void MainRenderer::BindBuffers(VkCommandBuffer commandBuffer) {
-
-    const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer() };
-    constexpr VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
+    this->Draw(commandBuffer);
 }
 
 void MainRenderer::UpdateBuffers() {
@@ -112,11 +103,11 @@ void MainRenderer::CreateUniformBuffers() {
             .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         },
-        .memoryProperty = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        .memoryProperty = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     };
 
-    m_uniformBuffer = std::make_unique<GenericBuffer>(m_context, desc);
-    m_uniformBuffer->MapMemory(m_uniformBuffer->GetBufferSize());
+    m_uniformMatrixBuffer = std::make_unique<GenericBuffer>(m_context, desc);
+    m_uniformMatrixBuffer->MapMemory(m_uniformMatrixBuffer->GetBufferSize());
 
 }
 
@@ -133,14 +124,14 @@ void MainRenderer::UpdateUniformBuffers() const {
         .proj = glm::perspective(glm::radians(45.0f), static_cast<float>(width) / static_cast<float>(height), 0.1f, 1000.0f)
     };
 
-    void* mappedUboPtr = m_uniformBuffer->GetMappedMemory();
+    void* mappedUboPtr = m_uniformMatrixBuffer->GetMappedMemory();
     std::memcpy(mappedUboPtr, &ubo, sizeof(ubo));
 }
 
 void MainRenderer::DestroyUniformBuffers() {
 
-    m_uniformBuffer->Destroy();
-    m_uniformBuffer = nullptr;
+    m_uniformMatrixBuffer->Destroy();
+    m_uniformMatrixBuffer = nullptr;
 }
 
 void MainRenderer::CreateVertexBuffer() {

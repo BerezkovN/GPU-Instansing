@@ -105,7 +105,7 @@ void InstancedRendererChunked::DestroyInstanceBuffers() {
     m_instancedTranslationBuffer = nullptr;
 }
 
-void InstancedRendererChunked::BindBuffers(VkCommandBuffer commandBuffer) {
+void InstancedRendererChunked::Draw(VkCommandBuffer commandBuffer) {
 
     const VkBuffer vertexBuffers[] = {
     	m_vertexBuffer->GetVkBuffer(),
@@ -116,6 +116,7 @@ void InstancedRendererChunked::BindBuffers(VkCommandBuffer commandBuffer) {
     constexpr VkDeviceSize offsets[] = { 0, 0, 0, 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 4, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(commandBuffer, 6, m_componentSystem->GetEntityCount(), 0, 0, 0);
 }
 
 

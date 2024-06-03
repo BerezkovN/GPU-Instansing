@@ -1,9 +1,9 @@
 #version 450
 
-layout(binding = 0) uniform UniformBufferObject {
+layout(binding = 0) uniform Matrices {
     mat4 view;
     mat4 proj;
-} ubo;
+} matrices;
 
 // Vertex attributes
 layout(location = 0) in vec3 inPosition;
@@ -28,7 +28,7 @@ void main() {
     modelMat[2] = vec4(0.0, 0.0, 1.0, 0.0);
     modelMat[3] = vec4(inTranslate.x, inTranslate.y, inTranslate.z, 1.0);
 
-    gl_Position = ubo.proj * ubo.view * modelMat * vec4(inPosition, 1.0);
+    gl_Position = matrices.proj * matrices.view * modelMat * vec4(inPosition, 1.0);
     fragColor = inColor;
 
     /* * *

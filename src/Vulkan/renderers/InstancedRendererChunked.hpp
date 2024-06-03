@@ -14,7 +14,7 @@ public:
 	void UpdateInstanceBuffers();
 	void DestroyInstanceBuffers();
 
-	void BindBuffers(VkCommandBuffer commandBuffer) override;
+	void Draw(VkCommandBuffer commandBuffer) override;
 	void UpdateBuffers() override;
 
 	MainRenderPipeline::VertexFormat GetVertexFormat() const override;

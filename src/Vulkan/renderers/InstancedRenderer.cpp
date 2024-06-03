@@ -78,12 +78,13 @@ void InstancedRenderer::DestroyInstanceBuffer() {
     m_instancedBuffer = nullptr;
 }
 
-void InstancedRenderer::BindBuffers(VkCommandBuffer commandBuffer) {
+void InstancedRenderer::Draw(VkCommandBuffer commandBuffer) {
 
     const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer(), m_instancedBuffer->GetVkBuffer() };
     constexpr VkDeviceSize offsets[] = { 0, 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 2, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(commandBuffer, 6, m_componentSystem->GetEntityCount(), 0, 0, 0);
 }
 
 
