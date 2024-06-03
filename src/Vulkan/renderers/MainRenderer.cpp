@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include "MainComponentSystem.hpp"
 #include "MainRenderPipeline.hpp"
 
 #include "../pch.hpp"
@@ -13,16 +14,17 @@
 #include "../helpers/ShaderLayout.hpp"
 
 
-MainRenderer::MainRenderer(const Context* context) {
+MainRenderer::MainRenderer(const Context* context, MainComponentSystem* componentSystem) {
 
     m_context = context;
+    m_componentSystem = componentSystem;
 }
 
 void MainRenderer::Initialize(const std::string& vertexShader, const std::string& fragmentShader) {
+
     this->CreateVertexBuffer();
     this->CreateIndexBuffer();
     this->CreateUniformBuffers();
-    this->CreateInstances();
 
     m_vertexShader = std::make_unique<Shader>(m_context->GetDevice(), "shaders/triangle.vert.spv", Shader::Type::Vertex);
     m_fragmentShader = std::make_unique<Shader>(m_context->GetDevice(), "shaders/triangle.frag.spv", Shader::Type::Fragment);
@@ -46,7 +48,6 @@ void MainRenderer::Destroy() {
     m_fragmentShader->Destroy();
     m_shaderLayout->Destroy();
 
-    this->DestroyInstances();
     this->DestroyUniformBuffers();
     this->DestroyIndexBuffer();
     this->DestroyVertexBuffer();
@@ -56,16 +57,15 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
 
     const VkCommandBuffer commandBuffer = desc.commandBuffer;
 
-    static bool updateInstances = true;
-    static int instanceCount = static_cast<int>(m_instanceTransforms.size());
+    static bool updateBuffers = true;
+    static int entityCount = MainComponentSystem::kMaxEntityCount;
 
-	this->UpdateUniformBuffers();
-
-    ImGui::Checkbox("Update instances", &updateInstances);
-    if (updateInstances) {
-		this->UpdateInstances(instanceCount);
+    ImGui::Checkbox("Update buffers", &updateBuffers);
+    if (updateBuffers) {
+        this->UpdateBuffers();
     }
-    ImGui::SliderInt("Instance Count", &instanceCount, 0, static_cast<int>(m_instanceTransforms.size()));
+    ImGui::SliderInt("Entity Count", &entityCount, 0, MainComponentSystem::kMaxEntityCount);
+    m_componentSystem->SetEntityCount(entityCount);
 
     const VkViewport viewport = {
         .x = 0, .y = 0,
@@ -84,15 +84,23 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_mainRenderPipeline->GetVkPipeline());
 
-
-    const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer(), m_instancedBuffer->GetVkBuffer() };
-    constexpr VkDeviceSize offsets[] = { 0, 0 };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 2, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
-
+    this->BindBuffers(commandBuffer);
     m_shaderLayout->BindDescriptors(commandBuffer);
 
-    vkCmdDrawIndexed(commandBuffer, 6, instanceCount, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 6, entityCount, 0, 0, 0);
+}
+
+void MainRenderer::BindBuffers(VkCommandBuffer commandBuffer) {
+
+    const VkBuffer vertexBuffers[] = { m_vertexBuffer->GetVkBuffer() };
+    constexpr VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
+}
+
+void MainRenderer::UpdateBuffers() {
+
+    this->UpdateUniformBuffers();
 }
 
 void MainRenderer::CreateUniformBuffers() {
@@ -133,13 +141,6 @@ void MainRenderer::DestroyUniformBuffers() {
 
     m_uniformBuffer->Destroy();
     m_uniformBuffer = nullptr;
-}
-
-
-void MainRenderer::DestroyInstances() {
-
-    m_instancedBuffer->Destroy();
-    m_instancedBuffer = nullptr;
 }
 
 void MainRenderer::CreateVertexBuffer() {

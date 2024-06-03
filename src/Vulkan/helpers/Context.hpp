@@ -11,6 +11,7 @@
 
 class Swapchain;
 class IRenderPass;
+class IComponentSystem;
 class IRenderer;
 
 
@@ -40,6 +41,7 @@ public:
     {
         std::shared_ptr<Context::Config> config;
         IRenderPass* renderPass;
+        IComponentSystem* componentSystem;
     };
 
     explicit Context(const CreateDesc& desc);
@@ -123,6 +125,7 @@ private:
 
     std::shared_ptr<Config> m_config{};
 	IRenderPass* m_renderPass{};
+    IComponentSystem* m_componentSystem{};
 
     /**
      * The extensions that the default context expects you to have.

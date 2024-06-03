@@ -5,6 +5,7 @@
 #include "helpers/Context.hpp"
 #include "helpers/IRenderer.hpp"
 #include "helpers/IRenderPass.hpp"
+#include "helpers/IComponentSystem.hpp"
 
 /* * *
  * NOTES:
@@ -30,16 +31,15 @@ private:
 	std::unique_ptr<Context> m_context;
 	std::unique_ptr<IRenderer> m_renderer;
 	std::unique_ptr<IRenderPass> m_renderPass;
+	std::unique_ptr<IComponentSystem> m_componentSystem;
 
 	std::vector<const char*> m_rendererLabels{
-		"Instanced Coherent Normal",
-		"Instanced Cached Normal"
+		"Instanced"
 	};
 
 	enum Renderers
 	{
-		InstancedCoherentDefault,
-		InstancedCachedDefault
+		Instanced,
 	};
-	Renderers m_selectedRenderer = InstancedCoherentDefault;
+	Renderers m_selectedRenderer = Instanced;
 };

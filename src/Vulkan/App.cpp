@@ -10,14 +10,15 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
-#include "renderers/InstancedCoherentRenderer.hpp"
-#include "renderers/InstancedCachedRenderer.hpp"
+#include "renderers/InstancedRenderer.hpp"
+#include "renderers/MainComponentSystem.hpp"
 
 App::App() {
 
     spdlog::set_pattern("%^[%H:%M] [%l]%$ %v");
 
     m_renderPass = std::make_unique<MainRenderPass>();
+    m_componentSystem = std::make_unique<MainComponentSystem>();
 
     const auto config = std::make_shared <Context::Config>();
     config->vkValidationLayers.push_back("VK_LAYER_KHRONOS_validation");
@@ -29,7 +30,8 @@ App::App() {
 
     Context::CreateDesc contextDesc = {
         .config = config,
-        .renderPass = m_renderPass.get()
+        .renderPass = m_renderPass.get(),
+        .componentSystem = m_componentSystem.get()
     };
     m_context = std::make_unique<Context>(contextDesc);
 
@@ -126,14 +128,10 @@ void App::OnInitializeRenderer() {
     }
 
     switch (m_selectedRenderer) {
-    case InstancedCoherentDefault:
-        m_renderer = std::make_unique<InstancedCoherentRenderer>(m_context.get());
+    case Instanced:
+        m_renderer = std::make_unique<InstancedRenderer>(m_context.get(), dynamic_cast<MainComponentSystem*>(m_componentSystem.get()));
         m_renderer->Initialize("shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
         break;
-    case InstancedCachedDefault:
-        m_renderer = std::make_unique<InstancedCachedRenderer>(m_context.get());
-        m_renderer->Initialize("shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
-	    break;
     }
 }
 

@@ -6,6 +6,7 @@
 
 #include <tracy/Tracy.hpp>
 
+#include "IComponentSystem.hpp"
 #include "IRenderPass.hpp"
 #include "../pch.hpp"
 
@@ -24,6 +25,7 @@ Context::Context(const Context::CreateDesc& desc) {
 
     m_config = desc.config;
     m_renderPass = desc.renderPass;
+    m_componentSystem = desc.componentSystem;
 
 	this->InitializeWindow();
 	this->InitializeVulkan();
@@ -99,6 +101,8 @@ void Context::HintWindowResize() {
 void Context::Update(const std::function<void(const Context::RenderDesc&)>& rendererCallback) {
 
     ZoneScoped;
+
+    m_componentSystem->Update();
 
     {
         // Waiting until the frame is fully ready and all the resources are free to modify.

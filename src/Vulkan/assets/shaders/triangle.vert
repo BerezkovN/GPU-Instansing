@@ -30,5 +30,22 @@ void main() {
 
     gl_Position = ubo.proj * ubo.view * modelMat * vec4(inPosition, 1.0);
     fragColor = inColor;
+
+    /* * *
+	*  gl_VertexIndex   inUv_index
+	*  0                0, 2
+	*  1                0, 3
+	*  2                1, 3
+	*  3                1, 2
+	*
+	*  Meaning
+	*
+	*  inUv[0 + 4*k] = topLeft.x
+	*  inUv[1 + 4*k] = bottomRight.x
+	*  inUv[2 + 4*k] = topLeft.y 
+	*  inUv[3 + 4*k] = bottomRight.y
+	*
+	*  where k - instance id
+	*/
     fragTexCoord = vec2(inUv[gl_VertexIndex / 2], inUv[2 + (((gl_VertexIndex + 1) % 4) / 2)]);
 }
