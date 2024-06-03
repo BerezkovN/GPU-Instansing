@@ -49,8 +49,6 @@ void InstancedRenderer::UpdateInstanceBuffer() {
 
     const uint32_t instanceCount = m_componentSystem->GetEntityCount();
 
-    static bool packData = true;
-    ImGui::Checkbox("Pack data", &packData);
 
     static bool writeData = true;
     ImGui::Checkbox("Write data", &writeData);
@@ -59,16 +57,16 @@ void InstancedRenderer::UpdateInstanceBuffer() {
 	InstanceData data{};
     for (size_t ind = 0; ind < instanceCount; ind++) {
 
-        if (packData) {
-	        data.translate = m_componentSystem->GetTransforms()[ind].translate;
-	        //data.rotation = {};
-	        data.sprite = m_componentSystem->GetSprites()[ind];
+        data.translate = m_componentSystem->GetTransforms()[ind].translate;
+        //data.rotation = {};
+        data.sprite = m_componentSystem->GetSprites()[ind];
+
+        if (!writeData) {
+            continue;
         }
 
-        if (writeData) {
-	        const auto instances = static_cast<InstanceData*>(m_instancedBuffer->GetMappedMemory());
-	        instances[ind] = data;
-        }
+        const auto instances = static_cast<InstanceData*>(m_instancedBuffer->GetMappedMemory());
+        instances[ind] = data;
     }
 }
 

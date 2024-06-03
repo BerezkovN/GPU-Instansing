@@ -7,6 +7,7 @@ DefaultRenderer::DefaultRenderer(const Context* context, MainComponentSystem* co
 	: MainRenderer(context, componentSystem) {
 
 	componentSystem->SetEntityCount(100);
+	m_maxEntityCount = 20000;
 }
 
 

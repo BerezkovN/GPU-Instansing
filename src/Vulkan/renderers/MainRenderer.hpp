@@ -6,6 +6,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 
+#include "MainComponentSystem.hpp"
 #include "MainRenderPipeline.hpp"
 #include "../helpers/IRenderer.hpp"
 #include "../helpers/textures/Sampler.hpp"
@@ -72,4 +73,6 @@ protected:
 
 	std::unique_ptr<Sampler> m_sampler;
 	std::unique_ptr<IRenderPipeline> m_mainRenderPipeline;
+
+	uint32_t m_maxEntityCount = MainComponentSystem::kMaxEntityCount;
 };

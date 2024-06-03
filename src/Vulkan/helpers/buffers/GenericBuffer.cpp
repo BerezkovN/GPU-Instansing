@@ -110,7 +110,7 @@ void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryPropertyFlags) {
         .memoryRequirements = memoryRequirements,
         .memoryPropertyFlags = memoryPropertyFlags
     };
-    spdlog::info("[GenericBuffer] Allocated {} with flags: {}", VkHelper::BufferUsageFlagsToString(m_bufferUsage), VkHelper::MemoryPropertyFlagsToString(memoryPropertyFlags, ", "));
+    //spdlog::info("[GenericBuffer] Allocated {} with flags: {}", VkHelper::BufferUsageFlagsToString(m_bufferUsage), VkHelper::MemoryPropertyFlagsToString(memoryPropertyFlags, ", "));
 
     m_bufferMemory = m_context->GetDevice()->GetDeviceMemory()->AllocateMemory(desc);
 

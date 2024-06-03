@@ -64,7 +64,7 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
     if (updateBuffers) {
         this->UpdateBuffers();
     }
-    ImGui::SliderInt("Entity Count", &entityCount, 0, MainComponentSystem::kMaxEntityCount);
+    ImGui::SliderInt("Entity Count", &entityCount, 0, m_maxEntityCount);
     m_componentSystem->SetEntityCount(entityCount);
 
     const VkViewport viewport = {
