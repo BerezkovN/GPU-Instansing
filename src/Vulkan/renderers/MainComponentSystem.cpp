@@ -5,7 +5,9 @@
 #include "../pch.hpp"
 #include "MainRenderer.hpp"
 
-MainComponentSystem::MainComponentSystem() : m_entityCount(kMaxEntityCount) {
+#include <omp.h>
+
+MainComponentSystem::MainComponentSystem() : m_entityCount(kMaxEntityCount / 10) {
 
     std::random_device rndDevice;
     std::mt19937 rndEngine(rndDevice());
@@ -46,26 +48,35 @@ void MainComponentSystem::Update() {
 
     const double currentTime = glfwGetTime();
 
-    for (size_t ind = 0; ind < m_entityCount; ind++) {
+    const MoveComponent* __restrict moveComponentsPtr = m_moveComponents.data();
+	Transform* __restrict transformsPtr = m_transforms.data();
 
-        auto translate = m_moveComponents[ind].center;
-        translate.y += sin(ind + currentTime) * m_moveComponents[ind].amplitude;
+	#pragma omp parallel for schedule(static)
+    for (int ind = 0; ind < m_entityCount; ind++) {
 
-        m_transforms[ind].translate = translate;
+        auto translate = moveComponentsPtr[ind].center;
+        translate.y += sin(ind + currentTime) * moveComponentsPtr[ind].amplitude;
+
+        transformsPtr[ind].translate = translate;
     }
 
-    for (size_t ind = 0; ind < m_entityCount; ind++) {
+    const Animation* __restrict animationsPtr = m_animations.data();
+    Sprite* __restrict spritesPtr = m_sprites.data();
 
-        uint32_t currentFrame = static_cast<float>(currentTime) / m_animations[ind].delay * static_cast<float>(m_animations[ind].frameCount);
+	#pragma omp parallel for schedule(static)
+    for (int ind = 0; ind < m_entityCount; ind++) {
+
+        uint32_t currentFrame = static_cast<float>(currentTime) / animationsPtr[ind].delay * static_cast<float>(animationsPtr[ind].frameCount);
     	currentFrame += ind;  // For randomness
 
-        const float uOffset = static_cast<float>(currentFrame) / static_cast<float>(m_animations[ind].frameCount);
+        const float uOffset = static_cast<float>(currentFrame) / static_cast<float>(animationsPtr[ind].frameCount);
 
-        m_sprites[ind].topLeftX     = m_animations[ind].originalSprite.topLeftX + uOffset;
-        m_sprites[ind].bottomRightX = m_animations[ind].originalSprite.bottomRightX + uOffset;
-        m_sprites[ind].topLeftY     = m_animations[ind].originalSprite.topLeftY;
-        m_sprites[ind].bottomRightY = m_animations[ind].originalSprite.bottomRightY;
+        spritesPtr[ind].topLeftX     = animationsPtr[ind].originalSprite.topLeftX + uOffset;
+        spritesPtr[ind].bottomRightX = animationsPtr[ind].originalSprite.bottomRightX + uOffset;
+        spritesPtr[ind].topLeftY     = animationsPtr[ind].originalSprite.topLeftY;
+        spritesPtr[ind].bottomRightY = animationsPtr[ind].originalSprite.bottomRightY;
     }
+
 }
 
 void MainComponentSystem::SetEntityCount(uint32_t newEntityCount) {

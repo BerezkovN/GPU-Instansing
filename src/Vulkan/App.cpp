@@ -88,8 +88,6 @@ void App::Update(const Context::RenderDesc& desc) {
 
     ImGui::ColorEdit3("Clear color", clearColor);
 
-    ImGui::ShowDemoWindow();
-
     ImGui::Combo("Renderer", reinterpret_cast<int*>(&m_selectedRenderer), m_rendererLabels.data(), static_cast<int>(m_rendererLabels.size()));
 
     ImGui::SameLine();

@@ -58,7 +58,7 @@ void MainRenderer::Record(const MainRenderer::RecordDesc& desc) {
     const VkCommandBuffer commandBuffer = desc.commandBuffer;
 
     static bool updateBuffers = true;
-    static int entityCount = MainComponentSystem::kMaxEntityCount;
+    static int entityCount = static_cast<int>(m_componentSystem->GetEntityCount());
 
     ImGui::Checkbox("Update buffers", &updateBuffers);
     if (updateBuffers) {

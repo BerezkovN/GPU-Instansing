@@ -49,34 +49,27 @@ void InstancedRenderer::UpdateInstanceBuffer() {
 
     const uint32_t instanceCount = m_componentSystem->GetEntityCount();
 
-    long long packTimer = 0;
-    long long writeTimer = 0;
+    static bool packData = true;
+    ImGui::Checkbox("Pack data", &packData);
+
+    static bool writeData = true;
+    ImGui::Checkbox("Write data", &writeData);
+
 
 	InstanceData data{};
     for (size_t ind = 0; ind < instanceCount; ind++) {
 
-        auto start = tracy::Profiler::GetTime();
+        if (packData) {
+	        data.translate = m_componentSystem->GetTransforms()[ind].translate;
+	        //data.rotation = {};
+	        data.sprite = m_componentSystem->GetSprites()[ind];
+        }
 
-        data.translate = m_componentSystem->GetTransforms()[ind].translate;
-        //data.rotation = {};
-        data.sprite = m_componentSystem->GetSprites()[ind];
-
-        packTimer += tracy::Profiler::GetTime() - start;
-        start = tracy::Profiler::GetTime();
-
-        const auto instances = static_cast<InstanceData*>(m_instancedBuffer->GetMappedMemory());
-        instances[ind] = data;
-
-        writeTimer += tracy::Profiler::GetTime() - start;
+        if (writeData) {
+	        const auto instances = static_cast<InstanceData*>(m_instancedBuffer->GetMappedMemory());
+	        instances[ind] = data;
+        }
     }
-
-    const auto packText = "Packing";
-    ZoneText(packText, constexpr_strlen(packText));
-    ZoneValue(packTimer / 1000000);
-
-    const auto writeText = "Write";
-    ZoneText(writeText, constexpr_strlen(writeText));
-    ZoneValue(writeTimer / 1000000.0);
 }
 
 void InstancedRenderer::DestroyInstanceBuffer() {

@@ -12,7 +12,7 @@ class MainComponentSystem : public IComponentSystem
 {
 public:
 
-	static constexpr uint32_t kMaxEntityCount = 100000;
+	static constexpr uint32_t kMaxEntityCount = 1000000;
 
 	struct Transform
 	{
