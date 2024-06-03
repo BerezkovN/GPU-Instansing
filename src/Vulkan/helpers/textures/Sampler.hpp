@@ -33,7 +33,6 @@ private:
 	void TransitionLayout(VkCommandBuffer commandBuffer, const TransitionDesc& desc) const;
 
 	void AllocateImage(VkMemoryPropertyFlags memoryProperty);
-	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
 	const Context* m_context;
 

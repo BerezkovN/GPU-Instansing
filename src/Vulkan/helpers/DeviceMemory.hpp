@@ -17,7 +17,7 @@ public:
 		VkMemoryPropertyFlags memoryPropertyFlags;
 	};
 
-	[[nodiscard]] VkDeviceMemory AllocateAndBindMemory(const DeviceMemory::AllocationDesc& desc);
+	[[nodiscard]] VkDeviceMemory AllocateMemory(const DeviceMemory::AllocationDesc& desc);
 	void FreeMemory(VkDeviceMemory memory);
 
 	[[nodiscard]] bool IsBARSupported();
@@ -26,7 +26,7 @@ private:
 	[[nodiscard]] uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
 	void LogHeapInfo() const;
-	void LogMemoryRequirements();
+	void LogMemoryRequirements() const;
 
 	const Device* m_device;
 

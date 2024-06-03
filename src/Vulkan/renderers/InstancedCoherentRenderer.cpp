@@ -130,6 +130,7 @@ MainRenderPipeline::VertexFormat InstancedCoherentRenderer::GetVertexFormat() co
             }
         },
         .attributes = {
+
             // Per Vertex
             VkVertexInputAttributeDescription{
                 .location = 0,
@@ -144,26 +145,26 @@ MainRenderPipeline::VertexFormat InstancedCoherentRenderer::GetVertexFormat() co
                 .offset = offsetof(Vertex, color)
             },
 
-        // Per Instance
-        VkVertexInputAttributeDescription{
-            .location = 2,
-            .binding = 1,
-            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-            .offset = offsetof(InstanceData, translate)
-        },
-        VkVertexInputAttributeDescription{
-            .location = 3,
-            .binding = 1,
-            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-            .offset = offsetof(InstanceData, rotation)
-        },
-        VkVertexInputAttributeDescription{
-            .location = 4,
-            .binding = 1,
-            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-            .offset = offsetof(InstanceData, uv)
-        }
-    }
+	        // Per Instance
+	        VkVertexInputAttributeDescription{
+	            .location = 2,
+	            .binding = 1,
+	            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+	            .offset = offsetof(InstanceData, translate)
+	        },
+	        VkVertexInputAttributeDescription{
+	            .location = 3,
+	            .binding = 1,
+	            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+	            .offset = offsetof(InstanceData, rotation)
+	        },
+	        VkVertexInputAttributeDescription{
+	            .location = 4,
+	            .binding = 1,
+	            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+	            .offset = offsetof(InstanceData, uv)
+	        }
+	    }
     };
 }
 

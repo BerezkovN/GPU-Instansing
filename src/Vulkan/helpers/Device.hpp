@@ -53,6 +53,7 @@ public:
     [[nodiscard]] DeviceMemory* GetDeviceMemory() const;
     [[nodiscard]] SurfaceCapabilities QuerySurfaceCapabilities(const Surface* surface) const;
     [[nodiscard]] VkPhysicalDevice GetVkPhysicalDevice() const;
+    [[nodiscard]] VkPhysicalDeviceProperties GetVkPhysicalDeviceProperties() const;
     [[nodiscard]] VkDevice GetVkDevice() const;
 
 private:

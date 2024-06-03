@@ -75,19 +75,20 @@ void Context::Run(const std::function<void(const Context::RenderDesc&)>& rendere
 
     while (!glfwWindowShouldClose(m_window)) {
 
-		ZoneScoped;
+    	ZoneScoped;
+        tracy::Profiler::SendFrameMark(nullptr);
+
         glfwPollEvents();
 
         this->Update(rendererCallback);
 
         ZoneNamedN(waitIdleZone, "Wait Idle", true);
-        // TODO: Make sure this is correct
-        // TODO: Yeah, I don't remember why we need this.
-        m_mainDevice->WaitIdle();
-
-        // I think that it's logical to mark the frame after synchronization.
-        tracy::Profiler::SendFrameMark(nullptr);
     }
+
+    // TODO: Make sure this is correct
+	// TODO: Yeah, I don't remember why we need this.
+    // Moved out of the main loop to fix validation errors on window close.
+    m_mainDevice->WaitIdle();
 }
 
 void Context::HintWindowResize() {
@@ -99,8 +100,12 @@ void Context::Update(const std::function<void(const Context::RenderDesc&)>& rend
 
     ZoneScoped;
 
-    vkWaitForFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFence, VK_TRUE, UINT64_MAX);
-
+    {
+        // Waiting until the frame is fully ready and all the resources are free to modify.
+        // TODO: Implement frames in flight
+        ZoneScopedN("Render frame");
+        vkWaitForFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFence, VK_TRUE, UINT64_MAX);
+    }
 
     uint32_t imageIndex;
     if (m_mustResize) {

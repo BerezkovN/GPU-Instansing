@@ -2,6 +2,7 @@
 
 #include "../../pch.hpp"
 #include "../Context.hpp"
+#include "../VkHelper.hpp"
 
 GenericBuffer::GenericBuffer(const Context* context, const GenericBuffer::Desc& desc) {
 
@@ -13,7 +14,7 @@ GenericBuffer::GenericBuffer(const Context* context, const GenericBuffer::Desc& 
 
 void GenericBuffer::Destroy() {
 
-    vkFreeMemory(m_context->GetDevice()->GetVkDevice(), m_bufferMemory, nullptr);
+    m_context->GetDevice()->GetDeviceMemory()->FreeMemory(m_bufferMemory);
     vkDestroyBuffer(m_context->GetDevice()->GetVkDevice(), m_buffer, nullptr);
 
     m_bufferMemory = VK_NULL_HANDLE;
@@ -97,6 +98,7 @@ void GenericBuffer::CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo) {
     }
 
     m_bufferSize = bufferCreateInfo.size;
+    m_bufferUsage = bufferCreateInfo.usage;
 }
 
 void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryPropertyFlags) {
@@ -108,8 +110,9 @@ void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryPropertyFlags) {
         .memoryRequirements = memoryRequirements,
         .memoryPropertyFlags = memoryPropertyFlags
     };
+    spdlog::info("[GenericBuffer] Allocated {} with flags: {}", VkHelper::BufferUsageFlagsToString(m_bufferUsage), VkHelper::MemoryPropertyFlagsToString(memoryPropertyFlags, ", "));
 
-    m_bufferMemory = m_context->GetDevice()->GetDeviceMemory()->AllocateAndBindMemory(desc);
+    m_bufferMemory = m_context->GetDevice()->GetDeviceMemory()->AllocateMemory(desc);
 
     m_allocatedMemorySize = memoryRequirements.size;
     vkBindBufferMemory(m_context->GetDevice()->GetVkDevice(), m_buffer, m_bufferMemory, 0);

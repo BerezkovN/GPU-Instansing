@@ -13,6 +13,7 @@ public:
     static std::string QueueFlagsToString(VkQueueFlags, const char* separator = " |");
     static std::string MemoryHeapFlagsToString(VkMemoryHeapFlags, const char* separator = " |");
     static std::string MemoryPropertyFlagsToString(VkMemoryPropertyFlags, const char* separator = " |");
+    static std::string BufferUsageFlagsToString(VkBufferUsageFlags, const char* separator = " |");
 
     /**
 	 * Checks if all required names are found in present names.

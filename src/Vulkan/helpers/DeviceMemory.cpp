@@ -43,9 +43,12 @@ DeviceMemory::DeviceMemory(const Device* device) {
 
 DeviceMemory::~DeviceMemory() {
 
+	if (!m_allocatedMemory.empty()) {
+		spdlog::error("[DeviceMemory] Detected memory leak. You must deallocate {} more resources", m_allocatedMemory.size());
+	}
 }
 
-VkDeviceMemory DeviceMemory::AllocateAndBindMemory(const DeviceMemory::AllocationDesc& desc) {
+VkDeviceMemory DeviceMemory::AllocateMemory(const DeviceMemory::AllocationDesc& desc) {
 
 	const VkMemoryAllocateInfo memoryAllocateInfo = {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -66,7 +69,8 @@ VkDeviceMemory DeviceMemory::AllocateAndBindMemory(const DeviceMemory::Allocatio
 
 void DeviceMemory::FreeMemory(VkDeviceMemory memory) {
 
-
+	vkFreeMemory(m_device->GetVkDevice(), memory, nullptr);
+	m_allocatedMemory.erase(memory);
 }
 
 uint32_t DeviceMemory::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
@@ -134,6 +138,16 @@ void DeviceMemory::LogHeapInfo() const {
 	spdlog::info("");
 }
 
-void DeviceMemory::LogMemoryRequirements() {
+void DeviceMemory::LogMemoryRequirements() const {
 
+	const auto& physicalDeviceProperties = m_device->GetVkPhysicalDeviceProperties();
+	
+	spdlog::info("[DeviceMemory] Limits:");
+	spdlog::info("[DeviceMemory] Push constants size: {}", physicalDeviceProperties.limits.maxMemoryAllocationCount);
+	spdlog::info("[DeviceMemory] Min uniform buffer offset alignment: {}", physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
+	spdlog::info("[DeviceMemory] Min storage buffer offset alignment: {}", physicalDeviceProperties.limits.minStorageBufferOffsetAlignment);
+	spdlog::info("[DeviceMemory] Min map memory alignment: {}", physicalDeviceProperties.limits.minMemoryMapAlignment);
+	spdlog::info("[DeviceMemory] Optimal buffer copy offset alignment: {}", physicalDeviceProperties.limits.optimalBufferCopyOffsetAlignment);
+	spdlog::info("[DeviceMemory] Optimal buffer copy row pitch alignment: {}", physicalDeviceProperties.limits.optimalBufferCopyRowPitchAlignment);
+	spdlog::info("");
 }

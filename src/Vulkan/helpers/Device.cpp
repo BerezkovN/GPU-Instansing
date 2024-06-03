@@ -36,15 +36,6 @@ Device::Device(const Context* context, VkPhysicalDevice physicalDevice) {
     vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
     vkGetPhysicalDeviceFeatures(m_physicalDevice, &m_physicalDeviceFeatures);
 
-    spdlog::info("[Device] Limits:");
-    spdlog::info("[Device] Push constants size: {}", m_physicalDeviceProperties.limits.maxMemoryAllocationCount);
-    spdlog::info("[Device] Min uniform buffer offset alignment: {}", m_physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
-    spdlog::info("[Device] Min storage buffer offset alignment: {}", m_physicalDeviceProperties.limits.minStorageBufferOffsetAlignment);
-    spdlog::info("[Device] Min map memory alignment: {}", m_physicalDeviceProperties.limits.minMemoryMapAlignment);
-    spdlog::info("[Device] Optimal buffer copy offset alignment: {}", m_physicalDeviceProperties.limits.optimalBufferCopyOffsetAlignment);
-    spdlog::info("[Device] Optimal buffer copy row pitch alignment: {}", m_physicalDeviceProperties.limits.optimalBufferCopyRowPitchAlignment);
-    spdlog::info("");
-
     // Extensions
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
@@ -212,7 +203,7 @@ void Device::Initialize() {
 
 
     // I'm not planning on modifying the config's device extension field. It makes it quite unpredictable.
-    m_enabledExtensions = m_context->GetConfig()->vkDeviceExtensions;
+    auto requiredExtensions = m_context->GetConfig()->vkDeviceExtensions;
 
     for (const auto essentialExtension: m_context->m_essentialDeviceExtensions) {
 
@@ -222,9 +213,19 @@ void Device::Initialize() {
         };
 
         // Do not include the essential extension if the extension was already added to the config.
-    	if (std::ranges::find_if(m_enabledExtensions, condition) == m_enabledExtensions.end()) {
-            m_enabledExtensions.push_back(essentialExtension);
+    	if (std::ranges::find_if(requiredExtensions, condition) == requiredExtensions.end()) {
+            requiredExtensions.push_back(essentialExtension);
     	}
+    }
+
+    for (const auto& extension : requiredExtensions) {
+
+    	if (!this->DoesSupportExtension(extension)) {
+            spdlog::warn("[Device] {} extension is not supported by this device", extension);
+            continue;
+    	}
+
+        m_enabledExtensions.push_back(extension);
     }
 
     VkPhysicalDeviceFeatures deviceFeatures{};
@@ -285,6 +286,10 @@ Device::SurfaceCapabilities Device::QuerySurfaceCapabilities(const Surface* surf
 
 VkPhysicalDevice Device::GetVkPhysicalDevice() const {
     return m_physicalDevice;
+}
+
+VkPhysicalDeviceProperties Device::GetVkPhysicalDeviceProperties() const {
+    return m_physicalDeviceProperties;
 }
 
 VkDevice Device::GetVkDevice() const {

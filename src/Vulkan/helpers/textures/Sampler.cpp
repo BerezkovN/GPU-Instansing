@@ -62,7 +62,8 @@ void Sampler::Destroy() {
 	vkDestroyImageView(m_context->GetDevice()->GetVkDevice(), m_imageView, nullptr);
 
 	vkDestroyImage(m_context->GetDevice()->GetVkDevice(), m_image, nullptr);
-	vkFreeMemory(m_context->GetDevice()->GetVkDevice(), m_imageMemory, nullptr);
+
+	m_context->GetDevice()->GetDeviceMemory()->FreeMemory(m_imageMemory);
 
 	m_image = VK_NULL_HANDLE;
 	m_imageMemory = VK_NULL_HANDLE;
@@ -204,31 +205,12 @@ void Sampler::AllocateImage(VkMemoryPropertyFlags memoryProperty) {
 	VkMemoryRequirements memoryRequirements;
 	vkGetImageMemoryRequirements(m_context->GetDevice()->GetVkDevice(), m_image, &memoryRequirements);
 
-	const VkMemoryAllocateInfo memoryAllocateInfo = {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.allocationSize = memoryRequirements.size,
-		.memoryTypeIndex = this->FindMemoryType(memoryRequirements.memoryTypeBits, memoryProperty)
+	const DeviceMemory::AllocationDesc desc = {
+		.memoryRequirements = memoryRequirements,
+		.memoryPropertyFlags = memoryProperty
 	};
-
-	const VkResult result = vkAllocateMemory(m_context->GetDevice()->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_imageMemory);
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("[Sampler] Could not allocate memory for the vertex buffer");
-	}
+	m_imageMemory = m_context->GetDevice()->GetDeviceMemory()->AllocateMemory(desc);
 
 	m_allocatedMemorySize = memoryRequirements.size;
 	vkBindImageMemory(m_context->GetDevice()->GetVkDevice(), m_image, m_imageMemory, 0);
 }
-
-uint32_t Sampler::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
-	VkPhysicalDeviceMemoryProperties memoryProperties;
-	vkGetPhysicalDeviceMemoryProperties(m_context->GetDevice()->GetVkPhysicalDevice(), &memoryProperties);
-
-	for (uint32_t ind = 0; ind < memoryProperties.memoryTypeCount; ind++) {
-		if (typeFilter & (1 << ind) && (memoryProperties.memoryTypes[ind].propertyFlags & properties)) {
-			return ind;
-		}
-	}
-
-	throw std::runtime_error("[Sampler] Could not find correct memory type");
-}
-
