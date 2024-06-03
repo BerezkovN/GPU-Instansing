@@ -24,7 +24,9 @@ ShaderLayout::ShaderLayout(const Device* device, const Shader* vertexShader, con
 	const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = static_cast<uint32_t>(m_descriptorSetLayouts.size()),
-		.pSetLayouts = m_descriptorSetLayouts.data()
+		.pSetLayouts = m_descriptorSetLayouts.data(),
+        .pushConstantRangeCount = m_pushConstantRange.has_value() ? 1u : 0u,
+        .pPushConstantRanges = m_pushConstantRange.has_value() ? &m_pushConstantRange.value() : nullptr
 	};
 
 	const VkResult result = vkCreatePipelineLayout(m_device->GetVkDevice(), &pipelineLayoutCreateInfo, nullptr,
@@ -138,6 +140,22 @@ void ShaderLayout::ParseShader(const Shader* shader, std::vector<VkDescriptorPoo
     this->ParseResourceType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shader, poolSizes);
     this->ParseResourceType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shader, poolSizes);
 
+    const spirv_cross::Compiler* compiler = shader->GetSpirvCompiler();
+    const spirv_cross::ShaderResources& shaderResources = compiler->get_shader_resources();
+
+    if (shaderResources.push_constant_buffers.empty()) {
+        return;
+    }
+
+    // There could be only one push constant.
+    const spirv_cross::Resource pushConstant = shaderResources.push_constant_buffers[0];
+    const uint32_t pushConstantSize = static_cast<uint32_t>(compiler->get_declared_struct_size(compiler->get_type(pushConstant.base_type_id)));
+
+    m_pushConstantRange = VkPushConstantRange{
+        .stageFlags = shader->GetVkType(),
+        .offset = 0,
+        .size = pushConstantSize,
+    };
 }
 
 void ShaderLayout::ParseResourceType(VkDescriptorType type, const Shader* shader, std::vector<VkDescriptorPoolSize>& poolSizes) {

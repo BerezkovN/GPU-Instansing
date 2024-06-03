@@ -80,6 +80,8 @@ private:
 	std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
 	std::vector<VkDescriptorSet> m_descriptorSets;
 
+	std::optional<VkPushConstantRange> m_pushConstantRange;
+
 	VkPipelineLayout m_pipelineLayout;
 
 	static spirv_cross::SmallVector<spirv_cross::Resource> GetResourceFromType(const spirv_cross::ShaderResources& resources, VkDescriptorType type);

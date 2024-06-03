@@ -5,7 +5,7 @@ layout(binding = 0) uniform Matrices {
     mat4 proj;
 } matrices;
 
-layout(binding = 1) uniform PerObject {
+layout(push_constant) uniform PerObject {
 	vec4 translate;
 	vec4 uv;
 } perObject;
