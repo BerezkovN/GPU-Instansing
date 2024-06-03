@@ -72,14 +72,21 @@ void Context::Destroy() {
 
 void Context::Run(const std::function<void(const Context::RenderDesc&)>& rendererCallback) {
 
+
     while (!glfwWindowShouldClose(m_window)) {
+
+		ZoneScoped;
         glfwPollEvents();
 
         this->Update(rendererCallback);
 
+        ZoneNamedN(waitIdleZone, "Wait Idle", true);
         // TODO: Make sure this is correct
         // TODO: Yeah, I don't remember why we need this.
         m_mainDevice->WaitIdle();
+
+        // I think that it's logical to mark the frame after synchronization.
+        tracy::Profiler::SendFrameMark(nullptr);
     }
 }
 
@@ -90,14 +97,10 @@ void Context::HintWindowResize() {
 
 void Context::Update(const std::function<void(const Context::RenderDesc&)>& rendererCallback) {
 
-
     ZoneScoped;
+
     vkWaitForFences(m_mainDevice->GetVkDevice(), 1, &m_submitFrameFence, VK_TRUE, UINT64_MAX);
 
-    // I think that it's logical to mark the frame after synchronization.
-    tracy::Profiler::SendFrameMark(nullptr);
-
-	ZoneNamedN(acquireZone, "Acquire image", true);
 
     uint32_t imageIndex;
     if (m_mustResize) {
@@ -107,7 +110,12 @@ void Context::Update(const std::function<void(const Context::RenderDesc&)>& rend
 
         return;
     }
-    VkResult result = vkAcquireNextImageKHR(m_mainDevice->GetVkDevice(), m_swapchain->GetVkSwapchain(), UINT64_MAX, m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+    VkResult result;
+    {
+        ZoneScopedN("Acquire image");
+        result = vkAcquireNextImageKHR(m_mainDevice->GetVkDevice(), m_swapchain->GetVkSwapchain(), UINT64_MAX, m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    }
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         m_mustResize = true;
@@ -141,12 +149,13 @@ void Context::Update(const std::function<void(const Context::RenderDesc&)>& rend
     };
 
 
-    ZoneNamedN(submitZone, "Graphics queue submit", true);
-    result = vkQueueSubmit(m_graphicsQueue->GetVkQueue(), 1, &submitInfo, m_submitFrameFence);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[MainRenderPipeline] Error submitting a graphics queue: " + std::to_string(result));
+    {
+        ZoneScopedN("Graphics queue submit");
+        result = vkQueueSubmit(m_graphicsQueue->GetVkQueue(), 1, &submitInfo, m_submitFrameFence);
+        if (result != VK_SUCCESS) {
+            throw std::runtime_error("[MainRenderPipeline] Error submitting a graphics queue: " + std::to_string(result));
+        }
     }
-
 
     VkSwapchainKHR swapchain = m_swapchain->GetVkSwapchain();
     const VkPresentInfoKHR presentInfo = {
@@ -158,11 +167,12 @@ void Context::Update(const std::function<void(const Context::RenderDesc&)>& rend
         .pImageIndices = &imageIndex
     };
 
-    ZoneNamedN(presentZone, "Graphics queue present", true);
-
-    result = vkQueuePresentKHR(m_graphicsQueue->GetVkQueue(), &presentInfo);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[Context] Error presenting graphics queue: " + std::to_string(result));
+    {
+        ZoneScopedN("Graphics queue present");
+        result = vkQueuePresentKHR(m_graphicsQueue->GetVkQueue(), &presentInfo);
+        if (result != VK_SUCCESS) {
+            throw std::runtime_error("[Context] Error presenting graphics queue: " + std::to_string(result));
+        }
     }
 }
 

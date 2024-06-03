@@ -11,10 +11,20 @@ public:
 	DeviceMemory(const Device* device);
 	~DeviceMemory();
 
-	VkDeviceMemory AllocateMemory(VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags propertyFlags);
+	struct AllocationDesc
+	{
+		VkMemoryRequirements memoryRequirements;
+		VkMemoryPropertyFlags memoryPropertyFlags;
+	};
+
+	[[nodiscard]] VkDeviceMemory AllocateAndBindMemory(const DeviceMemory::AllocationDesc& desc);
 	void FreeMemory(VkDeviceMemory memory);
 
+	[[nodiscard]] bool IsBARSupported();
+
 private:
+	[[nodiscard]] uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+
 	void LogHeapInfo() const;
 	void LogMemoryRequirements();
 

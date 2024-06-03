@@ -19,5 +19,6 @@ private:
 		glm::vec4 translate;
 		glm::vec4 rotation;
 		glm::vec4 uv;
+		//glm::vec4 padding;
 	};
 };

@@ -33,7 +33,7 @@ public:
     static DeviceID CalculateID(const VkPhysicalDeviceProperties& deviceProperties);
 
     // Factory
-    static std::unique_ptr<Device> FindDevice(const Context* app, DeviceID deviceID);
+    static std::unique_ptr<Device> FindDevice(const Context* context, DeviceID deviceID);
 	void Destroy();
 
 	void WaitIdle() const;
@@ -50,6 +50,7 @@ public:
 
     void Initialize();
 
+    [[nodiscard]] DeviceMemory* GetDeviceMemory() const;
     [[nodiscard]] SurfaceCapabilities QuerySurfaceCapabilities(const Surface* surface) const;
     [[nodiscard]] VkPhysicalDevice GetVkPhysicalDevice() const;
     [[nodiscard]] VkDevice GetVkDevice() const;
@@ -73,7 +74,7 @@ private:
     typedef std::vector<std::shared_ptr<DeviceQueue>> QueueFamily;
 	std::vector<QueueFamily> m_queueFamilies;
 
-    std::unique_ptr<DeviceMemory> m_memory;
+    std::unique_ptr<DeviceMemory> m_deviceMemory;
 
     VkDevice m_logicalDevice{};
 };

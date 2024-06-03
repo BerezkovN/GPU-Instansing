@@ -5,6 +5,8 @@
 #include "Device.hpp"
 #include "VkHelper.hpp"
 
+
+
 double ToGigaBytes(VkDeviceSize size) {
 	return static_cast<double>(size) / 1024.0 / 1024.0 / 1024.0;
 }
@@ -14,11 +16,21 @@ double ToMegaBytes(VkDeviceSize size) {
 }
 
 std::string ToBestRepresentation(VkDeviceSize size) {
-	if (ToGigaBytes(size) > 1.0) {
-		return std::format("{:.2f} GB", ToGigaBytes(size));
+
+	double castedSize = static_cast<double>(size);
+
+	castedSize /= 1024.0;
+	if (castedSize < 1024.0) {
+		return std::format("{:.2f} KB", castedSize);
 	}
 
-	return std::format("{:.2f} MB", ToMegaBytes(size));
+	castedSize /= 1024.0;
+	if (castedSize < 1024.0) {
+		return std::format("{:.2f} MB", castedSize);
+	}
+
+	castedSize /= 1024.0;
+	return std::format("{:.2f} GB", castedSize);
 }
 
 DeviceMemory::DeviceMemory(const Device* device) {
@@ -32,6 +44,45 @@ DeviceMemory::DeviceMemory(const Device* device) {
 DeviceMemory::~DeviceMemory() {
 
 }
+
+VkDeviceMemory DeviceMemory::AllocateAndBindMemory(const DeviceMemory::AllocationDesc& desc) {
+
+	const VkMemoryAllocateInfo memoryAllocateInfo = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = desc.memoryRequirements.size,
+		.memoryTypeIndex = this->FindMemoryType(desc.memoryRequirements.memoryTypeBits, desc.memoryPropertyFlags)
+	};
+
+	VkDeviceMemory memory;
+	
+	const VkResult result = vkAllocateMemory(m_device->GetVkDevice(), &memoryAllocateInfo, nullptr, &memory);
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("[DeviceMemory] Could not allocate memory");
+	}
+
+	m_allocatedMemory.insert(memory);
+	return memory;
+}
+
+void DeviceMemory::FreeMemory(VkDeviceMemory memory) {
+
+
+}
+
+uint32_t DeviceMemory::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
+
+	VkPhysicalDeviceMemoryProperties memoryProperties;
+	vkGetPhysicalDeviceMemoryProperties(m_device->GetVkPhysicalDevice(), &memoryProperties);
+
+	for (uint32_t ind = 0; ind < memoryProperties.memoryTypeCount; ind++) {
+		if (typeFilter & (1 << ind) && ((memoryProperties.memoryTypes[ind].propertyFlags & properties) == properties)) {
+			return ind;
+		}
+	}
+
+	throw std::runtime_error("[DeviceMemory] Could not find correct memory type");
+}
+
 
 void DeviceMemory::LogHeapInfo() const {
 

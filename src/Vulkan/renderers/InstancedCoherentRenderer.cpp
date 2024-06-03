@@ -50,7 +50,7 @@ void InstancedCoherentRenderer::CreateInstances() {
             .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         },
-        .memoryProperty = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        .memoryProperty = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     };
 
     m_instancedBuffer = std::make_unique<GenericBuffer>(m_context, desc);
@@ -70,17 +70,19 @@ void InstancedCoherentRenderer::UpdateInstances(uint32_t instanceCount) {
     long long packTimer = 0;
     long long writeTimer = 0;
 
-	InstanceData data{};
 
     start = tracy::Profiler::GetTime();
     for (size_t ind = 0; ind < instanceCount; ind++) {
         m_instanceMoveComponents[ind].offset = glm::vec4(0, sin(ind + glfwGetTime()), 0, 0);
+    }
+	for (size_t ind = 0; ind < instanceCount; ind++) {
         m_instanceAnimations[ind].currentFrame = static_cast<uint32_t>((static_cast<float>(glfwGetTime()) / m_instanceAnimations[ind].delay) * static_cast<float>(m_instanceAnimations[ind].frameCount)) + ind;
     }
 
     updateComponentsTimer += tracy::Profiler::GetTime() - start;
 
 
+	InstanceData data{};
     for (size_t ind = 0; ind < instanceCount; ind++) {
 
         start = tracy::Profiler::GetTime();

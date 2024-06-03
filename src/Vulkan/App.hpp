@@ -6,6 +6,16 @@
 #include "helpers/IRenderer.hpp"
 #include "helpers/IRenderPass.hpp"
 
+/* * *
+ * NOTES:
+ *
+ * Build Tracy into a shared library with TRACY_EXPORTS
+ * Check if alignment of 64 (cache line) makes any difference
+ * ALWAYS check for reads from VRAM
+ * Implement memory heap allocation class and support for BAR
+ * Benchmark graphics vs transfer queue for copy operations
+ */
+
 class App {
 public:
 

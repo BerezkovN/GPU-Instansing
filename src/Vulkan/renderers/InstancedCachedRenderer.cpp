@@ -58,18 +58,22 @@ void InstancedCachedRenderer::CreateInstances() {
 
 void InstancedCachedRenderer::UpdateInstances(uint32_t instanceCount) {
 
+    InstanceData data;
+
     for (size_t ind = 0; ind < instanceCount; ind++) {
 
+    	double time = glfwGetTime();
         m_instanceMoveComponents[ind].offset = glm::vec4(0, sin(ind + glfwGetTime()), 0, 0);
         m_instanceAnimations[ind].currentFrame = static_cast<uint32_t>((static_cast<float>(glfwGetTime()) / m_instanceAnimations[ind].delay) * static_cast<float>(m_instanceAnimations[ind].frameCount)) + ind;
         const float animation = static_cast<float> (m_instanceAnimations[ind].currentFrame) / static_cast<float>(m_instanceAnimations[ind].frameCount);
 
         InstanceData* instances = static_cast<InstanceData*>(m_instancedBuffer->GetMappedMemory());
-        auto& instance = instances[ind];
 
-        instance.translate = m_instanceTransforms[ind].translate + m_instanceMoveComponents[ind].offset;
-        instance.rotation = m_instanceTransforms[ind].rotation;
-        instance.uv = glm::vec4(m_instanceSprites[ind].topLeft.x + animation, m_instanceSprites[ind].bottomRight.x + animation, m_instanceSprites[ind].topLeft.y, m_instanceSprites[ind].bottomRight.y);
+        data.translate = m_instanceTransforms[ind].translate + m_instanceMoveComponents[ind].offset;
+        data.rotation = m_instanceTransforms[ind].rotation;
+        data.uv = glm::vec4(m_instanceSprites[ind].topLeft.x + animation, m_instanceSprites[ind].bottomRight.x + animation, m_instanceSprites[ind].topLeft.y, m_instanceSprites[ind].bottomRight.y);
+
+        instances[ind] = data;
     }
     
     const VkMappedMemoryRange range = {

@@ -18,7 +18,7 @@ StagingBuffer::StagingBuffer(const Context* context, const VkDeviceSize bufferSi
     };
 
     this->CreateBuffer(createInfo);
-    this->AllocateBuffer(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+    this->AllocateBuffer(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 }
 
 void StagingBuffer::CopyData(const void* data, size_t dataSize) {
@@ -26,13 +26,13 @@ void StagingBuffer::CopyData(const void* data, size_t dataSize) {
     void* mappedPointer = this->MapMemory(dataSize);
     std::memcpy(mappedPointer, data, dataSize);
 
-	const VkMappedMemoryRange range = {
+	/*const VkMappedMemoryRange range = {
         .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
         .memory = m_bufferMemory,
         .offset = 0,
         .size = dataSize
     };
-    vkFlushMappedMemoryRanges(m_context->GetDevice()->GetVkDevice(), 1, &range);
+    vkFlushMappedMemoryRanges(m_context->GetDevice()->GetVkDevice(), 1, &range);*/
 
     this->UnmapMemory();
 }

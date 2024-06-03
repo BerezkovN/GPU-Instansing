@@ -401,3 +401,4 @@ out/
 
 # CLion
 .idea/
+src/Vulkan/assets/imgui.ini

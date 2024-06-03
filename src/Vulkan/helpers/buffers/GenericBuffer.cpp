@@ -99,38 +99,20 @@ void GenericBuffer::CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo) {
     m_bufferSize = bufferCreateInfo.size;
 }
 
-void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryProperty) {
+void GenericBuffer::AllocateBuffer(VkMemoryPropertyFlags memoryPropertyFlags) {
 
     VkMemoryRequirements memoryRequirements;
     vkGetBufferMemoryRequirements(m_context->GetDevice()->GetVkDevice(), m_buffer, &memoryRequirements);
 
-    const VkMemoryAllocateInfo memoryAllocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = memoryRequirements.size,
-        // TODO: Learn more about this
-        .memoryTypeIndex = this->FindMemoryType(memoryRequirements.memoryTypeBits, memoryProperty)
+    const DeviceMemory::AllocationDesc desc = {
+        .memoryRequirements = memoryRequirements,
+        .memoryPropertyFlags = memoryPropertyFlags
     };
 
-    // TODO: Learn about VMA
-    const VkResult result = vkAllocateMemory(m_context->GetDevice()->GetVkDevice(), &memoryAllocateInfo, nullptr, &m_bufferMemory);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("[GenericBuffer] Could not allocate memory for the vertex buffer");
-    }
+    m_bufferMemory = m_context->GetDevice()->GetDeviceMemory()->AllocateAndBindMemory(desc);
 
     m_allocatedMemorySize = memoryRequirements.size;
     vkBindBufferMemory(m_context->GetDevice()->GetVkDevice(), m_buffer, m_bufferMemory, 0);
 }
 
-uint32_t GenericBuffer::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
-    VkPhysicalDeviceMemoryProperties memoryProperties;
-    vkGetPhysicalDeviceMemoryProperties(m_context->GetDevice()->GetVkPhysicalDevice(), &memoryProperties);
-
-    for (uint32_t ind = 0; ind < memoryProperties.memoryTypeCount; ind++) {
-        if (typeFilter & (1 << ind) && (memoryProperties.memoryTypes[ind].propertyFlags & properties)) {
-            return ind;
-        }
-    }
-
-    throw std::runtime_error("[GenericBuffer] Could not find correct memory type");
-}
 

@@ -36,7 +36,14 @@ Device::Device(const Context* context, VkPhysicalDevice physicalDevice) {
     vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
     vkGetPhysicalDeviceFeatures(m_physicalDevice, &m_physicalDeviceFeatures);
 
+    spdlog::info("[Device] Limits:");
     spdlog::info("[Device] Push constants size: {}", m_physicalDeviceProperties.limits.maxMemoryAllocationCount);
+    spdlog::info("[Device] Min uniform buffer offset alignment: {}", m_physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
+    spdlog::info("[Device] Min storage buffer offset alignment: {}", m_physicalDeviceProperties.limits.minStorageBufferOffsetAlignment);
+    spdlog::info("[Device] Min map memory alignment: {}", m_physicalDeviceProperties.limits.minMemoryMapAlignment);
+    spdlog::info("[Device] Optimal buffer copy offset alignment: {}", m_physicalDeviceProperties.limits.optimalBufferCopyOffsetAlignment);
+    spdlog::info("[Device] Optimal buffer copy row pitch alignment: {}", m_physicalDeviceProperties.limits.optimalBufferCopyRowPitchAlignment);
+    spdlog::info("");
 
     // Extensions
     uint32_t extensionCount;
@@ -251,7 +258,11 @@ void Device::Initialize() {
         }
     }
 
-    m_memory = std::make_unique<DeviceMemory>(this);
+    m_deviceMemory = std::make_unique<DeviceMemory>(this);
+}
+
+DeviceMemory* Device::GetDeviceMemory() const {
+    return m_deviceMemory.get();
 }
 
 Device::SurfaceCapabilities Device::QuerySurfaceCapabilities(const Surface* surface) const {

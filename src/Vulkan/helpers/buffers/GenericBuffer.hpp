@@ -42,14 +42,13 @@ protected:
 	explicit GenericBuffer(const Context* context);
 
 	void CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo);
-	void AllocateBuffer(VkMemoryPropertyFlags memoryProperty);
+	void AllocateBuffer(VkMemoryPropertyFlags memoryPropertyFlags);
 
-	[[nodiscard]] uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+	const Context* m_context{};
 
-	const Context* m_context;
-
-	VkBuffer m_buffer;
-	VkDeviceMemory m_bufferMemory;
+	VkBuffer m_buffer{};
+	VkBufferUsageFlags m_bufferUsage{};
+	VkDeviceMemory m_bufferMemory{};
 
 	// These could be sometimes different because of the memory requirements.
 	VkDeviceSize m_bufferSize = 0;
